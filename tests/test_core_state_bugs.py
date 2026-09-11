@@ -4,12 +4,12 @@ from types import SimpleNamespace
 import pytest
 
 from sllurp.llrp import (
+    LLRP_DEFAULT_PORT,
+    LLRP_SECURE_PORT,
     LLRPClient,
     LLRPReaderClient,
     LLRPReaderConfig,
     LLRPReaderState,
-    LLRP_DEFAULT_PORT,
-    LLRP_SECURE_PORT,
 )
 from sllurp.llrp_errors import ReaderConfigurationError
 

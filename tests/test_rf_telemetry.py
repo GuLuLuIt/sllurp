@@ -2,6 +2,7 @@ import pytest
 
 from sllurp.llrp import LLRPClient, LLRPReaderConfig, _build_tag_deduplicator
 from sllurp.llrp_errors import ReaderConfigurationError
+from sllurp.llrp_proto import LLRPError
 from sllurp.llrp_runtime import ACTION_ROSPEC, build_config_transition_plan
 
 
@@ -86,5 +87,5 @@ def test_rf_telemetry_live_change_is_rospec_scoped():
 
 @pytest.mark.parametrize("value", [True, None, "unknown"])
 def test_invalid_rf_telemetry_mode_is_rejected(value):
-    with pytest.raises(Exception):
+    with pytest.raises(LLRPError):
         LLRPReaderConfig({"rf_telemetry_mode": value})

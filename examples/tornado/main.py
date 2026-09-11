@@ -26,21 +26,21 @@ This file contains an example showing how to use Sllurp with Tornado
 to update a web page via websockets when rfid tags are seen.
 """
 
-import sys
 import os
+import sys
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 
 from argparse import ArgumentParser
-from logging import getLogger, INFO, Formatter, StreamHandler, WARN
+from logging import INFO, WARN, Formatter, StreamHandler, getLogger
 
 from tornado.escape import json_decode
 from tornado.ioloop import IOLoop
 from tornado.template import Loader
-from tornado.web import RequestHandler, Application
+from tornado.web import Application, RequestHandler
 from tornado.websocket import WebSocketClosedError, WebSocketHandler
 
-from sllurp.llrp import LLRP_DEFAULT_PORT, LLRPReaderConfig, LLRPReaderClient
+from sllurp.llrp import LLRP_DEFAULT_PORT, LLRPReaderClient, LLRPReaderConfig
 from sllurp.log import get_logger
 
 logger = get_logger("sllurp")
@@ -284,7 +284,7 @@ def main(args):
         for reader in reader_clients:
             try:
                 reader.disconnect()
-            except:
+            except Exception:
                 logger.exception("Error during disconnect. Ignoring...")
 
     while True:

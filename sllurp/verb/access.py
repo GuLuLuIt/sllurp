@@ -2,18 +2,17 @@ import binascii
 import logging
 import pprint
 import sys
-
 from threading import RLock
 
-from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
-    LLRPReaderConfig,
-    LLRPReaderClient,
-    LLRPReaderState,
     C1G2Read,
     C1G2Write,
+    LLRPReaderClient,
+    LLRPReaderConfig,
+    LLRPReaderState,
 )
 from sllurp.log import get_logger
+from sllurp.util import monotonic, split_host_port
 
 start_time = None
 

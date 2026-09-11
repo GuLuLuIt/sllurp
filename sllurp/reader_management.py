@@ -236,7 +236,8 @@ class HTTPReaderManager:
                     body=response_body,
                 )
         except HTTPError as exc:
-            error_body = exc.read()
+            with exc:
+                error_body = exc.read()
             detail = error_body.decode("utf-8", errors="replace").strip()
             message = f"reader returned HTTP {exc.code} {exc.reason}"
             if detail:

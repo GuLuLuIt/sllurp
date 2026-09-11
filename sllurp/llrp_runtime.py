@@ -4,7 +4,6 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from threading import Event, RLock, Timer
 
-
 ACTION_CLIENT = "client"
 ACTION_ROSPEC = "rospec"
 ACTION_READER_CONFIG = "reader_config"

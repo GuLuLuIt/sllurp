@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from sllurp.llrp import (
+    LLRP_MSG_ID_MAX,
     C1G2BlockErase,
     C1G2BlockPermalock,
     C1G2BlockWrite,
@@ -14,7 +15,6 @@ from sllurp.llrp import (
     C1G2Recommission,
     C1G2TargetTag,
     C1G2Write,
-    LLRP_MSG_ID_MAX,
     LLRPClient,
     LLRPMessage,
     LLRPReaderClient,

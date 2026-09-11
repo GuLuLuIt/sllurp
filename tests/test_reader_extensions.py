@@ -4,6 +4,7 @@ import pytest
 
 from sllurp.llrp import LLRPClient, LLRPReaderConfig
 from sllurp.llrp_proto import (
+    LLRPError,
     LLRPROSpec,
     Param_struct,
     decode_MotoTagPhase,
@@ -70,7 +71,7 @@ def test_zebra_selector_is_a_rospec_live_transition():
     [{"EnablePhase": 1}, {"EnableNotARealField": True}, ["EnablePhase"]],
 )
 def test_invalid_zebra_report_selector_is_rejected(selector):
-    with pytest.raises(Exception):
+    with pytest.raises(LLRPError):
         LLRPReaderConfig({"zebra_tag_content_selector": selector})
 
 

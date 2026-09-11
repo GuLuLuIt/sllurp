@@ -16,7 +16,6 @@ from collections.abc import Callable, Iterable, Mapping
 from threading import RLock
 from typing import Any
 
-
 TagKey = Callable[[Mapping[str, Any]], Any]
 TagCallback = Callable[[Any, list[Mapping[str, Any]]], None]
 

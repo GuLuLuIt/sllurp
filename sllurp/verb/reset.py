@@ -1,10 +1,9 @@
 """Reset command."""
 
-import logging
 
-from sllurp.util import split_host_port
-from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
+from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
 from sllurp.log import get_logger
+from sllurp.util import split_host_port
 
 logger = get_logger(__name__)
 
@@ -47,7 +46,7 @@ def main(args):
         host, port = reader.get_peername()
         try:
             reader.connect()
-        except:
+        except Exception:
             logger.error("Failed to connect to %s:%d. Skipping...", host, port)
 
     while True:
@@ -65,5 +64,5 @@ def main(args):
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")

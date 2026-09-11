@@ -8,6 +8,8 @@ import pytest
 
 from sllurp.reader_management import (
     ReaderManagementError,
+)
+from sllurp.reader_management import (
     UnsupportedReaderOperation as SharedUnsupportedReaderOperation,
 )
 from sllurp.zebra_management import (

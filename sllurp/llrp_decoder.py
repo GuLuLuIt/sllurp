@@ -1,4 +1,5 @@
-from struct import Struct, error as StructError
+from struct import Struct
+from struct import error as StructError
 
 from .log import get_logger
 

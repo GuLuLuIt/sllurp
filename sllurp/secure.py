@@ -9,17 +9,19 @@ import ssl
 from socket import (
     AF_INET,
     AF_INET6,
-    SOCK_STREAM,
-    SOL_SOCKET,
+    IPPROTO_TCP,
     SO_KEEPALIVE,
     SO_RCVBUF,
-    IPPROTO_TCP,
+    SOCK_STREAM,
+    SOL_SOCKET,
     TCP_NODELAY,
     socket,
+)
+from socket import (
     error as SocketError,
 )
 
-from .llrp import LLRPReaderClient, LLRP_SECURE_PORT, SOCKET_RECV_CHUNK
+from .llrp import LLRP_SECURE_PORT, SOCKET_RECV_CHUNK, LLRPReaderClient
 from .llrp_errors import ReaderConfigurationError
 from .log import get_logger
 
@@ -178,7 +180,7 @@ class LLRPTLSReaderClient(LLRPReaderClient):
                 try:
                     raw_socket.close()
                 except Exception:
-                    pass
+                    logger.debug("secure socket cleanup failed", exc_info=True)
             raise
 
         self._disconnected_notified = False

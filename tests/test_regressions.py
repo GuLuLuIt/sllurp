@@ -6,11 +6,11 @@ from click.testing import CliRunner
 
 import sllurp.cli as cli_module
 from sllurp.llrp import (
+    LLRP_SECURE_PORT,
     C1G2LockPayload,
     LLRPClient,
     LLRPReaderClient,
     LLRPReaderConfig,
-    LLRP_SECURE_PORT,
     LLRPReaderState,
 )
 from sllurp.llrp_errors import ReaderConfigurationError

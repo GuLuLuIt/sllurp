@@ -4,9 +4,9 @@ import logging
 import pprint
 from threading import RLock
 
-from sllurp.util import monotonic, split_host_port
-from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
+from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
 from sllurp.log import get_logger
+from sllurp.util import monotonic, split_host_port
 
 start_time = None
 numtags = 0

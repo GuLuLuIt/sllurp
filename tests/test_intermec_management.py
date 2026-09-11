@@ -8,7 +8,6 @@ import pytest
 from sllurp.intermec_management import IntermecDCWSManager
 from sllurp.reader_management import ReaderManagementError, create_reader_manager
 
-
 WSDL11 = b'''<?xml version="1.0"?>
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"

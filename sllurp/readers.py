@@ -17,7 +17,6 @@ transport when a particular firmware build exposes a secure LLRP endpoint.
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-
 LLRP_PORT = 5084
 SECURE_LLRP_PORT = 5085
 

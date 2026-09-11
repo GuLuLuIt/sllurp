@@ -3,11 +3,11 @@ from types import SimpleNamespace
 import pytest
 
 from sllurp.llrp import (
+    SOCKET_RECV_CHUNK,
+    ZEBRA_TIMED_DEDUP_MAX_SECONDS,
     LLRPClient,
     LLRPReaderClient,
     LLRPReaderConfig,
-    SOCKET_RECV_CHUNK,
-    ZEBRA_TIMED_DEDUP_MAX_SECONDS,
 )
 from sllurp.llrp_errors import ReaderConfigurationError
 from sllurp.llrp_proto import LLRPError

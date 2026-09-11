@@ -1,5 +1,5 @@
 import ssl
-from socket import SOL_SOCKET, SO_RCVBUF
+from socket import SO_RCVBUF, SOL_SOCKET
 from unittest.mock import Mock, patch
 
 import pytest

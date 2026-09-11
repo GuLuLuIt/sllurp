@@ -3,16 +3,17 @@ import logging
 import pprint
 from threading import RLock
 
-from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
-    LLRPReaderConfig,
-    LLRPReaderClient,
-    LLRPReaderState,
+    LLRP_DEFAULT_PORT,
     C1G2Lock,
     C1G2LockPayload,
-    LLRP_DEFAULT_PORT,
+    LLRPReaderClient,
+    LLRPReaderConfig,
+    LLRPReaderState,
 )
-from sllurp.log import get_logger, init_logging as configure_logging
+from sllurp.log import get_logger
+from sllurp.log import init_logging as configure_logging
+from sllurp.util import monotonic, split_host_port
 
 startTime = None
 endTime = None
