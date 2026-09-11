@@ -1,0 +1,44 @@
+name: Final hardening patch
+
+on:
+  push:
+    branches: [fix/final-hardware-readiness]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+      - name: Apply audited hardening changes
+        run: python tools/final_hardening.py
+      - name: Install test/build dependencies
+        run: python -m pip install -e '.[test]' build
+      - name: Check Python syntax
+        run: python -m compileall -q sllurp tests
+      - name: Check whitespace
+        run: git diff --check
+      - name: Run full test suite
+        run: pytest
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Smoke-test wheel in clean environment
+        run: |
+          python -m venv /tmp/sllurp-final-smoke
+          /tmp/sllurp-final-smoke/bin/pip install dist/sllurp-*.whl
+          /tmp/sllurp-final-smoke/bin/python -c "import sllurp; import sllurp.cli; import sllurp.llrp; import sllurp.zebra_management"
+          /tmp/sllurp-final-smoke/bin/sllurp --help >/dev/null
+      - name: Commit validated patch
+        run: |
+          git rm tools/final_hardening.py .github/workflows/final-hardening.yml
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Harden final hardware-readiness edge cases"
+          git push origin HEAD:fix/final-hardware-readiness
