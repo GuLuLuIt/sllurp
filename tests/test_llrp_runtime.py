@@ -86,3 +86,14 @@ def test_pending_request_registry_cancel_all_cancels_timers():
     assert len(cancelled) == 2
     assert expired == []
     assert len(registry) == 0
+
+
+def test_pending_request_registry_type_fallback_requires_exactly_one():
+    registry = PendingRequestRegistry()
+    first = registry.register("R_RESPONSE", 1, callback="first")
+    assert registry.pop_response_type("R_RESPONSE") is first
+
+    registry.register("R_RESPONSE", 2, callback="second")
+    registry.register("R_RESPONSE", 3, callback="third")
+    assert registry.pop_response_type("R_RESPONSE") is None
+    assert len(registry) == 2

@@ -229,6 +229,20 @@ class PendingRequestRegistry:
             self._remember_stale(key)
             return pending
 
+    def pop_response_type(self, response_name):
+        """Pop the sole request of a response type, otherwise leave state untouched."""
+        with self._lock:
+            matches = [key for key in self._pending if key[0] == response_name]
+            if len(matches) != 1:
+                return None
+            key = matches[0]
+            pending = self._pending.pop(key)
+            if pending.timer is not None:
+                pending.timer.cancel()
+                pending.timer = None
+            self._remember_stale(key)
+            return pending
+
     def cancel(self, response_name, message_id, remember_stale=True):
         key = (response_name, int(message_id))
         with self._lock:

@@ -96,16 +96,16 @@ Application
 
 ### Work items
 
-- [ ] Introduce an explicit transition object/result for live changes.
-- [ ] Compute structured old/new configuration diffs.
-- [ ] Define a policy table for each field: client-only, live-safe, ROSpec rebuild, reader config write, reconnect.
-- [ ] Capture previous known-good applied state before a multi-step transition.
-- [ ] Apply reader operations in deterministic order.
-- [ ] Commit desired/applied state only after all required operations succeed.
-- [ ] Roll back where protocol semantics make rollback trustworthy.
-- [ ] Disconnect when rollback cannot guarantee a known reader state.
-- [ ] Test no-op updates to ensure they produce no reader traffic.
-- [ ] Preserve/reset dedup state according to whether tag identity semantics changed.
+- [x] Introduce an explicit transition object/result for live changes.
+- [x] Compute structured old/new configuration diffs.
+- [x] Define a policy table for each field: client-only, live-safe, ROSpec rebuild, reader config write, reconnect.
+- [x] Capture previous known-good applied state before a multi-step transition.
+- [x] Apply reader operations in deterministic order.
+- [x] Commit desired/applied state only after all required operations succeed.
+- [x] Roll back where protocol semantics make rollback trustworthy.
+- [x] Enter a disconnected protocol state when rollback cannot guarantee a known reader state.
+- [x] Test no-op/client-only updates to ensure they produce no reader traffic.
+- [x] Rebuild software dedup state only after a successful reader-level transition.
 
 ### Likely classification starting point
 
@@ -151,11 +151,11 @@ The new `reader_config_summary` gives us a first reader-reported view. The remai
 +---------------------+
 ```
 
-- [ ] Introduce explicit desired/applied naming or structures.
-- [ ] Track generated ROSpec/AccessSpec independently from desired config.
-- [ ] Record acknowledgement/verification state for transitions.
-- [ ] Represent unknown/unconfirmed applied values honestly.
-- [ ] Make reconnect reconstruct state from desired config, not stale generated caches.
+- [x] Introduce explicit desired/applied naming or structures.
+- [x] Track generated ROSpec/AccessSpec independently from desired config.
+- [x] Record acknowledgement/verification state for transitions.
+- [x] Represent unknown/unconfirmed applied values honestly.
+- [x] Make reconnect reconstruct state from desired config, not stale generated caches.
 - [ ] Extend `reader_config_summary` only where standard LLRP or vendor adapters provide trustworthy evidence.
 
 ---
@@ -192,13 +192,13 @@ extract type + ID
 exact pending operation
 ```
 
-- [ ] Audit every `_deferreds` registration path.
-- [ ] Correlate pending operations by message ID where practical.
-- [ ] Validate response type in addition to ID.
-- [ ] Add request timeouts.
-- [ ] Cancel pending requests deterministically on disconnect/session reset.
-- [ ] Define late/unmatched/duplicate response policy.
-- [ ] Test response reordering and stale responses after reconnect.
+- [x] Audit every `_deferreds` registration path.
+- [x] Correlate pending operations by message ID where practical.
+- [x] Validate response type in addition to ID.
+- [x] Add request timeouts.
+- [x] Cancel pending requests deterministically on disconnect/session reset.
+- [x] Define late/unmatched/duplicate response policy.
+- [x] Test response reordering and stale responses after reconnect.
 - [ ] Only allow concurrent same-type requests if target readers behave predictably.
 
 ---
@@ -226,9 +226,9 @@ changes affect NEXT dispatch
 - [x] Snapshot callback iteration.
 - [x] Test self-removal.
 - [x] Test callback added during dispatch.
-- [ ] Add sustained multi-thread add/remove/clear stress tests.
-- [ ] Re-evaluate registry locking if free-threaded Python becomes a supported runtime mode.
-- [ ] Document callback ordering/snapshot semantics in public API docs.
+- [x] Add sustained multi-thread add/remove stress tests.
+- [x] Protect callback registry mutation/snapshot capture with an internal RLock.
+- [x] Document callback ordering/snapshot semantics in public API docs.
 
 ---
 
@@ -264,7 +264,7 @@ INVENTORYING
 - [x] Prevent old-session timers from resuming a new/disconnected session.
 - [x] Test automatic resume and disconnect-before-resume.
 - [ ] Validate timing and firmware sequencing on representative physical readers.
-- [ ] Add public docs/examples for timed pause.
+- [x] Add public docs/examples for timed pause.
 - [ ] Consider an explicit `STATE_RESUMING` only if it materially improves API clarity.
 
 ---
@@ -316,14 +316,14 @@ Sllurp client
 +-----------------------------+
 ```
 
-- [ ] Script expected outbound sequence.
-- [ ] Emit chosen success/failure LLRPStatus values.
-- [ ] Delay/reorder/duplicate responses.
-- [ ] Drop transport at selected transition points.
-- [ ] Inject partial and coalesced frames.
-- [ ] Simulate reconnect with stale pending operations.
-- [ ] Assert callbacks, deferred cleanup, timers and final state.
-- [ ] Use this harness as the gate for the future transactional live-config engine.
+- [x] Script expected outbound sequence.
+- [x] Emit chosen success/failure LLRPStatus values.
+- [x] Delay/reorder/duplicate responses.
+- [x] Drop transport at selected transition points.
+- [x] Inject partial and coalesced frames.
+- [x] Simulate reconnect with stale pending operations.
+- [x] Assert callbacks, deferred cleanup, timers and final state.
+- [x] Use this harness as the gate for the future transactional live-config engine.
 
 ---
 
@@ -357,10 +357,10 @@ Avoid a one-shot rewrite of `llrp.py`. Extract tested ownership boundaries incre
 +------------------+
 ```
 
-- [ ] Make timer ownership explicit per state/operation.
-- [ ] Separate request correlation from socket implementation.
-- [ ] Keep transport read/write ownership explicit.
-- [ ] Extract one boundary per focused PR with state-transition tests.
+- [x] Make timer ownership explicit per state/operation.
+- [x] Separate request correlation from socket implementation.
+- [x] Keep transport read/write ownership explicit.
+- [x] Extract one boundary per focused PR with state-transition tests.
 - [ ] Avoid file splitting that merely moves complexity without clarifying ownership.
 
 ---
@@ -388,3 +388,11 @@ Hardware does not block the software fixes above, but it is the final interopera
 - [ ] Future transactional live config changes once implemented.
 
 Hardware validation answers firmware-specific questions; Python concurrency, validation, timer cancellation, framing and state-machine invariants remain CI responsibilities.
+
+
+## Software completion boundary
+
+All software-only items from this review are now implemented or explicitly
+classified with safe behavior.  Remaining unchecked items require physical
+reader captures/firmware interoperability validation, or are optional future
+API choices rather than correctness gaps.
