@@ -1,7 +1,7 @@
 """HTTP/HTTPS management helpers for RFID readers.
 
 LLRP controls RFID inventory behavior, but many readers expose additional
-vendor-specific management APIs over HTTP or HTTPS.  The endpoint layout and
+vendor-specific management APIs over HTTP or HTTPS. The endpoint layout and
 payload schema are not standardized, so this module provides both a generic
 transport and a factory for the vendor adapters implemented by sllurp.
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import ssl
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -46,6 +47,14 @@ def _origin(parsed: ParseResult) -> tuple[str, str, int]:
     else:
         port = 443 if parsed.scheme == "https" else 80
     return parsed.scheme.lower(), parsed.hostname.casefold(), port
+
+
+def _unverified_client_context() -> ssl.SSLContext:
+    """Create an explicit client TLS context with verification disabled."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
 
 
 class _SameOriginRedirectHandler(HTTPRedirectHandler):
@@ -89,15 +98,15 @@ class ReaderHTTPResponse:
 class HTTPReaderManager:
     """Generic HTTP/HTTPS management transport for RFID readers.
 
-    The class is intentionally vendor-neutral.  Callers provide the reader's
-    API path and payload documented by the reader vendor.  Requests and
+    The class is intentionally vendor-neutral. Callers provide the reader's
+    API path and payload documented by the reader vendor. Requests and
     redirects are kept on the configured reader origin so authentication
     material cannot be forwarded to another host.
 
     Parameters:
         base_url: Reader base URL, including ``http://`` or ``https://``.
         username/password: Optional HTTP Basic credentials.
-        bearer_token: Optional bearer token.  Mutually exclusive with
+        bearer_token: Optional bearer token. Mutually exclusive with
             username/password.
         headers: Default request headers.
         timeout: Socket timeout in seconds.
@@ -129,8 +138,13 @@ class HTTPReaderManager:
             raise ValueError("bearer_token cannot be combined with username/password")
         if (username is None) != (password is None):
             raise ValueError("username and password must be supplied together")
-        if timeout <= 0:
-            raise ValueError("timeout must be greater than zero")
+        if (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float))
+            or not math.isfinite(timeout)
+            or timeout <= 0
+        ):
+            raise ValueError("timeout must be a finite number greater than zero")
         if key_file and not cert_file:
             raise ValueError("key_file requires cert_file")
 
@@ -148,7 +162,7 @@ class HTTPReaderManager:
             if verify_tls:
                 ssl_context = ssl.create_default_context(cafile=ca_file)
             else:
-                ssl_context = ssl._create_unverified_context()
+                ssl_context = _unverified_client_context()
             if cert_file:
                 ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
             handlers.append(HTTPSHandler(context=ssl_context))
@@ -192,10 +206,9 @@ class HTTPReaderManager:
     ) -> ReaderHTTPResponse:
         """Send one management request to the reader.
 
-        ``json_body`` and ``data`` are mutually exclusive.  Non-2xx HTTP
+        ``json_body`` and ``data`` are mutually exclusive. Non-2xx HTTP
         responses and transport failures raise :class:`ReaderManagementError`.
         """
-
         if json_body is not None and data is not None:
             raise ValueError("json_body and data are mutually exclusive")
 
@@ -279,12 +292,11 @@ def create_reader_manager(
 ) -> Any:
     """Create a documented HTTP/HTTPS management adapter for ``model``.
 
-    The factory intentionally refuses to guess private web-UI endpoints.  A
-    model is selected only when sllurp has a documented vendor adapter.  For an
+    The factory intentionally refuses to guess private web-UI endpoints. A
+    model is selected only when sllurp has a documented vendor adapter. For an
     arbitrary documented endpoint callers can always instantiate
     :class:`HTTPReaderManager` directly.
     """
-
     key = _management_model_key(model)
     vendor_key = (vendor or "").strip().lower()
 

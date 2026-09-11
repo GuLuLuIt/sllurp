@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pprint
+from threading import RLock
 
 from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
@@ -11,7 +12,7 @@ from sllurp.llrp import (
     C1G2LockPayload,
     LLRP_DEFAULT_PORT,
 )
-from sllurp.log import get_logger
+from sllurp.log import get_logger, init_logging as configure_logging
 
 startTime = None
 endTime = None
@@ -21,28 +22,64 @@ logger = get_logger(__name__)
 
 args = None
 
+_stats_lock = RLock()
+_reader_start_times = {}
+_reader_tag_counts = {}
+
+
+def _reader_key(reader):
+    return id(reader)
+
+
+def _reset_runtime_state():
+    global startTime, endTime, tagReport
+    with _stats_lock:
+        startTime = None
+        endTime = None
+        tagReport = 0
+        _reader_start_times.clear()
+        _reader_tag_counts.clear()
+
 
 def startTimeMeasurement():
     global startTime
-    startTime = monotonic()
+    with _stats_lock:
+        startTime = monotonic()
+    return startTime
 
 
 def stopTimeMeasurement():
     global endTime
-    endTime = monotonic()
+    with _stats_lock:
+        endTime = monotonic()
+    return endTime
 
 
-def finish_cb(_):
-    # stop runtime measurement to determine rates
+def finish_cb(reader):
     stopTimeMeasurement()
-    runTime = endTime - startTime
+    with _stats_lock:
+        reader_key = _reader_key(reader)
+        reader_start = _reader_start_times.pop(reader_key, None)
+        reader_count = _reader_tag_counts.pop(reader_key, 0)
+        total_count = tagReport
+        global_start = startTime
+        stopped = endTime
 
+    started = reader_start if reader_start is not None else global_start
+    runtime = max(stopped - started, 0.0) if started is not None else 0.0
+    rate = reader_count / runtime if runtime > 0 else 0.0
     logger.info(
-        "total # of tags seen: %d (%d tags/second)", tagReport, tagReport / runTime
+        "reader %r: %d tags seen (%.1f tags/second); total=%d",
+        reader.get_peername() if reader is not None else None,
+        reader_count,
+        rate,
+        total_count,
     )
 
 
 def access_cb(reader, state):
+    with _stats_lock:
+        _reader_start_times.setdefault(_reader_key(reader), monotonic())
     lock_payload = C1G2LockPayload(args.privilege, args.data_field)
     opspec = C1G2Lock(AccessPassword=args.access_password, LockPayload=lock_payload)
     return reader.start_access_spec(opspec, stop_after_count=args.count)
@@ -51,13 +88,20 @@ def access_cb(reader, state):
 def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global tagReport
-    if len(tags):
-        logger.info("saw tag(s): %s", pprint.pformat(tags))
+    if tags:
+        if logger.isEnabledFor(logging.INFO):
+            logger.info("saw tag(s): %s", pprint.pformat(tags))
     else:
         logger.info("no tags seen")
         return
+
+    count = sum(int(tag.get("TagSeenCount", 1)) for tag in tags)
+    with _stats_lock:
+        tagReport += count
+        reader_key = _reader_key(reader)
+        _reader_tag_counts[reader_key] = _reader_tag_counts.get(reader_key, 0) + count
+
     for tag in tags:
-        tagReport += tag["TagSeenCount"]
         if "C1G2LockOpSpecResult" in tag:
             result = tag["C1G2LockOpSpecResult"].get("Result")
             logger.debug("result: %s", result)
@@ -131,13 +175,12 @@ def parse_args():
         help="Operation count for R/W (default 0=forever)",
     )
 
-    # C1G2 Lock Payload parameters:
     parser.add_argument(
         "-priv",
         "--privilege",
         default=0,
         type=int,
-        help="Access privilege: " "0 RW, 1 Permalock, 2 Permaunlock, 3 Unlock",
+        help="Access privilege: 0 RW, 1 Permalock, 2 Permaunlock, 3 Unlock",
     )
     parser.add_argument(
         "-df",
@@ -145,10 +188,8 @@ def parse_args():
         default=0,
         type=int,
         dest="data_field",
-        help="Access Data Field: 0 KILL passwd, "
-        "1 ACCESS passwd, 2 EPC, 3 TID, 4 User memory",
+        help="Access Data Field: 0 KILL passwd, 1 ACCESS passwd, 2 EPC, 3 TID, 4 User memory",
     )
-
     parser.add_argument(
         "-ap",
         "--access_password",
@@ -157,29 +198,15 @@ def parse_args():
         dest="access_password",
         help="Access password for secure state if R/W locked",
     )
-
     parser.add_argument("-l", "--logfile")
 
     args = parser.parse_args()
 
 
 def init_logging():
-    logLevel = args.debug and logging.DEBUG or logging.INFO
-    logFormat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
-    formatter = logging.Formatter(logFormat)
-    stderr = logging.StreamHandler()
-    stderr.setFormatter(formatter)
-
-    root = logging.getLogger()
-    root.setLevel(logLevel)
-    root.handlers = [stderr]
-
-    if args.logfile:
-        fHandler = logging.FileHandler(args.logfile)
-        fHandler.setFormatter(formatter)
-        root.addHandler(fHandler)
-
-    logger.log(logLevel, "log level: %s", logging.getLevelName(logLevel))
+    configure_logging(debug=args.debug, logfile=args.logfile)
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logger.log(log_level, "log level: %s", logging.getLevelName(log_level))
 
 
 def main():
@@ -190,9 +217,11 @@ def main():
         logger.info("No readers specified.")
         return 0
 
+    _reset_runtime_state()
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
 
     factory_args = dict(
+        duration=args.time,
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
@@ -201,7 +230,7 @@ def main():
         mode_identifier=args.mode_identifier,
         tag_population=args.population,
         start_inventory=True,
-        disconnect_when_done=True,
+        disconnect_when_done=bool(args.time and args.time > 0),
         tag_content_selector={
             "EnableROSpecID": False,
             "EnableSpecIndex": False,
@@ -223,43 +252,35 @@ def main():
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)
         reader.add_disconnected_callback(finish_cb)
-        # tagReportCallback will be called every time the reader sends a TagReport
-        # message (i.e., when it has "seen" tags).
         reader.add_tag_report_callback(tag_report_cb)
-        # start tag access once inventorying
         reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, access_cb)
 
         reader_clients.append(reader)
 
-    # start runtime measurement to determine rates
     startTimeMeasurement()
 
     try:
         for reader in reader_clients:
             reader.connect()
-    except:
-        # On one error, abort all
+    except Exception:
         for reader in reader_clients:
             reader.disconnect()
 
     while True:
         try:
-            # Join all threads using a timeout so it doesn't block
-            # Filter out threads which have been joined or are None
             alive_readers = [reader for reader in reader_clients if reader.is_alive()]
             if not alive_readers:
                 break
             for reader in alive_readers:
                 reader.join(1)
         except (KeyboardInterrupt, SystemExit):
-            # catch ctrl-C and stop inventory before disconnecting
             logger.info("Exit detected! Stopping readers...")
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
-                    pass
+            break
 
 
 if __name__ == "__main__":

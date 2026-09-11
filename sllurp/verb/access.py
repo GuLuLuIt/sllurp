@@ -3,6 +3,8 @@ import logging
 import pprint
 import sys
 
+from threading import RLock
+
 from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
     LLRPReaderConfig,
@@ -20,17 +22,91 @@ logger = get_logger(__name__)
 
 args = None
 
+_stats_lock = RLock()
+_write_lock = RLock()
+_output_lock = RLock()
+_reader_start_times = {}
+_reader_tag_counts = {}
+_write_data = None
+_write_data_words = None
 
-def finish_cb(_):
-    # stop runtime measurement to determine rates
-    runTime = monotonic() - start_time
 
+def _reader_key(reader):
+    return id(reader)
+
+
+def _reset_runtime_state():
+    global start_time, tagReport, _write_data, _write_data_words
+    with _stats_lock:
+        start_time = None
+        tagReport = 0
+        _reader_start_times.clear()
+        _reader_tag_counts.clear()
+    with _write_lock:
+        _write_data = None
+        _write_data_words = None
+
+
+def _mark_reader_start(reader):
+    global start_time
+    now = monotonic()
+    with _stats_lock:
+        if start_time is None:
+            start_time = now
+        _reader_start_times.setdefault(_reader_key(reader), now)
+    return now
+
+
+def finish_cb(reader):
+    now = monotonic()
+    with _stats_lock:
+        reader_key = _reader_key(reader)
+        reader_start = _reader_start_times.pop(reader_key, None)
+        reader_count = _reader_tag_counts.pop(reader_key, 0)
+        total_count = tagReport
+        global_start = start_time
+
+    started = reader_start if reader_start is not None else global_start
+    runtime = max(now - started, 0.0) if started is not None else 0.0
+    rate = reader_count / runtime if runtime > 0 else 0.0
     logger.info(
-        "total # of tags seen: %d (%d tags/second)", tagReport, tagReport / runTime
+        "reader %r: %d tags seen (%.1f tags/second); total=%d",
+        reader.get_peername() if reader is not None else None,
+        reader_count,
+        rate,
+        total_count,
     )
 
 
+def _get_write_data(reader):
+    """Read a write payload once and reuse it for every configured reader."""
+    global _write_data, _write_data_words
+
+    word_count = args.write_words
+    expected_bytes = word_count * 2
+    with _write_lock:
+        if _write_data is not None and _write_data_words == word_count:
+            return _write_data
+
+        data = sys.stdin.buffer.read(expected_bytes)
+        if len(data) != expected_bytes:
+            logger.error(
+                "Expected %d bytes on stdin for --write-words=%d, got %d",
+                expected_bytes,
+                word_count,
+                len(data),
+            )
+            reader.disconnect()
+            return None
+
+        _write_data = bytes(data)
+        _write_data_words = word_count
+        return _write_data
+
+
 def access_cb(reader, state):
+    _mark_reader_start(reader)
+
     if args.read_words:
         opspec = C1G2Read(
             AccessPassword=args.access_password,
@@ -39,18 +115,9 @@ def access_cb(reader, state):
             WordCount=args.read_words,
         )
     elif args.write_words:
-        # bytes
-        expected_bytes = args.write_words * 2
-        data = sys.stdin.buffer.read(expected_bytes)
-        if len(data) != expected_bytes:
-            logger.error(
-                "Expected %d bytes on stdin for --write-words=%d, got %d",
-                expected_bytes,
-                args.write_words,
-                len(data),
-            )
-            reader.disconnect()
-            return
+        data = _get_write_data(reader)
+        if data is None:
+            return None
 
         opspec = C1G2Write(
             AccessPassword=args.access_password,
@@ -60,8 +127,7 @@ def access_cb(reader, state):
             WriteData=data,
         )
     else:
-        # Unexpected situation
-        return
+        return None
 
     return reader.start_access_spec(opspec, stop_after_count=args.count)
 
@@ -69,18 +135,28 @@ def access_cb(reader, state):
 def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global tagReport
-    if len(tags):
-        logger.info("saw tag(s): %s", pprint.pformat(tags))
+    if tags:
+        if logger.isEnabledFor(logging.INFO):
+            logger.info("saw tag(s): %s", pprint.pformat(tags))
     else:
         logger.info("no tags seen")
         return
+
+    count = sum(int(tag.get("TagSeenCount", 1)) for tag in tags)
+    with _stats_lock:
+        tagReport += count
+        reader_key = _reader_key(reader)
+        _reader_tag_counts[reader_key] = _reader_tag_counts.get(reader_key, 0) + count
+
     for tag in tags:
-        tagReport += tag["TagSeenCount"]
         if "C1G2ReadOpSpecResult" in tag:
-            # copy the binary data to the standard output stream
             data = tag["C1G2ReadOpSpecResult"].get("ReadData")
             if data:
-                sys.stdout.buffer.write(data)  # bytes
+                with _output_lock:
+                    sys.stdout.buffer.write(data)
+                    flush = getattr(sys.stdout.buffer, "flush", None)
+                    if flush is not None:
+                        flush()
                 logger.debug("hex data: %s", binascii.hexlify(data))
 
 
@@ -99,6 +175,8 @@ def main(main_args):
     if args.read_words is None and args.write_words is None:
         logger.info("Error: Either --read-words or --write-words has to be chosen.")
         return 2
+
+    _reset_runtime_state()
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
     frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
@@ -151,42 +229,35 @@ def main(main_args):
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)
         reader.add_disconnected_callback(finish_cb)
-        # tagReportCallback will be called every time the reader sends a TagReport
-        # message (i.e., when it has "seen" tags).
         reader.add_tag_report_callback(tag_report_cb)
-        # start tag access once inventorying
         reader.add_state_callback(LLRPReaderState.STATE_INVENTORYING, access_cb)
 
         reader_clients.append(reader)
 
-    # start runtime measurement to determine rates
     start_time = monotonic()
     try:
         for reader in reader_clients:
             reader.connect()
-    except:
+    except Exception:
         if reader:
             logger.error(
                 "Failed to establish a connection with: %r", reader.get_peername()
             )
-        # On one error, abort all
         for reader in reader_clients:
             reader.disconnect()
 
     while True:
         try:
-            # Join all threads using a timeout so it doesn't block
-            # Filter out threads which have been joined or are None
             alive_readers = [reader for reader in reader_clients if reader.is_alive()]
             if not alive_readers:
                 break
             for reader in alive_readers:
                 reader.join(1)
         except (KeyboardInterrupt, SystemExit):
-            # catch ctrl-C and stop inventory before disconnecting
             logger.info("Exit detected! Stopping readers...")
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
+            break
