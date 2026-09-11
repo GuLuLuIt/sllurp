@@ -918,6 +918,7 @@ class LLRPClient:
         logger.debugfast("LLRPMessage received in state %s:\n%s", self.state, lmsg)
         msgName = lmsg.getName()
         message_id = self._message_id(lmsg)
+        self._response_message_id = message_id
 
         if message_id is not None and msgName.endswith("_RESPONSE"):
             if self._pending_requests.is_stale(msgName, message_id):
@@ -1027,6 +1028,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s enabling Impinj extensions: %s", status, err)
+                self.processDeferreds(msgName, False)
                 raise ReaderConfigurationError("ENABLE_IMPINJ_EXTENSIONS failed")
             logger.debugfast("Successfully enabled Impinj extensions")
 
@@ -1045,6 +1047,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s getting capabilities: %s", status, err)
+                self.processDeferreds(msgName, False)
                 raise ReaderConfigurationError("Error getting capabilities")
 
             self.capabilities = lmsg.msgdict["GET_READER_CAPABILITIES_RESPONSE"]
@@ -1081,6 +1084,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s getting reader config: %s", status, err)
+                self.processDeferreds(msgName, False)
                 raise ReaderConfigurationError("Error getting reader config")
 
             if msgName == "GET_READER_CONFIG_RESPONSE":
@@ -1119,6 +1123,9 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s setting reader config: %s", status, err)
+                if self._suppress_set_config_post_actions:
+                    self._suppress_set_config_post_actions = False
+                self.processDeferreds(msgName, False)
                 raise ReaderConfigurationError("Error setting reader config")
 
             suppress_post_actions = self._suppress_set_config_post_actions
@@ -1158,6 +1165,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s adding ROSpec: %s", status, err)
+                self.processDeferreds(msgName, False)
                 raise ReaderConfigurationError("Error adding ROSpec")
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -1174,6 +1182,7 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s enabling ROSpec: %s", status, err)
+                self.processDeferreds(msgName, False)
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
@@ -1210,6 +1219,7 @@ class LLRPClient:
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.error("START_ROSPEC failed with status %s: %s", status, err)
                 logger.fatal("Error %s starting ROSpec: %s", status, err)
+                self.processDeferreds(msgName, False)
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
