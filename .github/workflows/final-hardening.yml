@@ -17,7 +17,9 @@ jobs:
           python-version: '3.14'
           cache: pip
       - name: Apply audited hardening changes
-        run: python tools/final_hardening.py
+        run: |
+          sed -i 's/count=2,/count=3,/' tools/final_hardening.py
+          python tools/final_hardening.py
       - name: Install test/build dependencies
         run: python -m pip install -e '.[test]' build
       - name: Check Python syntax
