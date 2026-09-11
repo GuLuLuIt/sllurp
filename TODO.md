@@ -1,398 +1,302 @@
 # TODO
 
-This is the engineering roadmap after the core correctness pass on `fix/core-state-bugs-2026-09-11`.
+This file is the completion ledger for the deep runtime/state-machine review.
 
-The immediate correctness hazards found in `BUGS.md` have been fixed or fenced. Items below are larger capabilities/refactors that should stay incremental and test-driven.
+The software-only work from this review is implemented and covered by CI. Remaining unchecked items below require physical reader hardware, captured vendor responses, or firmware-specific interoperability evidence; they are not unimplemented Python correctness fixes.
 
 ```text
-small focused change
-       |
-       v
-state-machine/unit tests
-       |
-       v
-CI: Python 3.10 -> 3.14 + coverage + wheel smoke
-       |
-       v
+software design / implementation
+            |
+            v
+unit + state-machine + failure tests
+            |
+            v
+Python 3.10 -> 3.14 + coverage + wheel smoke
+            |
+            v
 hardware interoperability validation
+```
+
+## Completed core correctness work
+
+- [x] Normalize legacy `Channelist` before frequency validation.
+- [x] Make generic `update_config()` disconnected-only instead of silently replacing live state.
+- [x] Validate a replacement configuration before mutation.
+- [x] Invalidate stale ROSpec/reported/applied caches after disconnected replacement.
+- [x] Rebuild software dedup state consistently after successful configuration replacement.
+- [x] Preserve explicit LLRP ports and switch implicit default port with TLS mode.
+- [x] Implement cancellable timed pause/resume.
+- [x] Cancel stale pause timers on explicit resume, disconnect, and protocol-session reset.
+- [x] Normalize useful standard `GET_READER_CONFIG` fields while preserving raw decoded data.
+- [x] Make failed LLRP responses complete/pop their pending operation before raising or returning.
+- [x] Add regression coverage for the above.
+
+---
+
+## 1. Transactional live dynamic configuration
+
+Implemented through a policy-driven transition engine rather than raw live assignment.
+
+```text
+apply_config(new)
        |
        v
-merge
-```
-
-## Completed in the core bug pass
-
-- [x] Normalize legacy `Channelist` before validating frequency configuration.
-- [x] Make generic `update_config()` safe by allowing replacement only while fully disconnected.
-- [x] Validate proposed config before committing generic replacement.
-- [x] Invalidate stale ROSpec/reported-state caches after disconnected config replacement.
-- [x] Rebuild software dedup state consistently on reader config replacement.
-- [x] Preserve explicit LLRP ports and update implicit default port when TLS mode changes.
-- [x] Use stable callback snapshots so add/remove during dispatch cannot corrupt the current dispatch cycle.
-- [x] Implement cancellable timed pause/resume.
-- [x] Cancel/invalidate timed-pause resume across explicit resume, disconnect and protocol-session reset.
-- [x] Add normalized `reader_config_summary` while keeping raw `reader_config` and the historical `parseReaderConfig()` return contract.
-- [x] Add regression coverage for all of the above.
-
----
-
-## 1. Transactional live dynamic configuration engine
-
-**Priority:** High  
-**Physical reader required to implement:** No  
-**Hardware validation:** Strongly recommended
-
-Generic replacement is now safe because it refuses live mutation. The next feature is to intentionally support selected live changes with a transaction model instead of reopening the old ambiguity.
-
-### Target flow
-
-```text
-Application
-    |
-    | apply_config(new)
-    v
-+---------------------+
-| validate proposal   |
-+---------------------+
-    |
-    v
-+---------------------+
-| diff old vs new     |
-+---------------------+
-    |
-    v
+   validate
+       |
+       v
+      diff
+       |
+       v
 +-------------------------------+
-| classify changed fields       |
+| classify every changed field  |
 |                               |
-| A client-only                 |
-| B live-safe                   |
-| C ROSpec rebuild              |
-| D reconnect                   |
+| client-only                   |
+| ROSpec rebuild                |
+| SET_READER_CONFIG             |
+| reconnect-required            |
 +-------------------------------+
-    |
-    +---------+----------+----------+
-    |         |          |          |
-    v         v          v          v
- client    live op     pause +    reconnect
- only                  rebuild
-    |         |          |          |
-    +---------+----------+----------+
-              |
-              v
-       verify final state
-              |
-       +------+------+
-       |             |
-    success        failure
-       |             |
-       v             v
-     commit      rollback
-                    |
-              rollback fails
-                    |
-                    v
-             clean disconnect
+       |
+       v
+execute deterministic transition
+       |
+ +-----+-----+
+ |           |
+success    failure
+ |           |
+commit    rollback old state
+             |
+       rollback unsafe/fails
+             |
+             v
+         DISCONNECTED
 ```
 
-### Work items
-
-- [x] Introduce an explicit transition object/result for live changes.
+- [x] Add an explicit `ConfigTransition` result object.
 - [x] Compute structured old/new configuration diffs.
-- [x] Define a policy table for each field: client-only, live-safe, ROSpec rebuild, reader config write, reconnect.
-- [x] Capture previous known-good applied state before a multi-step transition.
-- [x] Apply reader operations in deterministic order.
-- [x] Commit desired/applied state only after all required operations succeed.
-- [x] Roll back where protocol semantics make rollback trustworthy.
-- [x] Enter a disconnected protocol state when rollback cannot guarantee a known reader state.
-- [x] Test no-op/client-only updates to ensure they produce no reader traffic.
-- [x] Rebuild software dedup state only after a successful reader-level transition.
+- [x] Maintain an explicit per-field action policy.
+- [x] Default unknown/new configuration fields to reconnect-required rather than silently live-safe.
+- [x] Support client-only updates without reader traffic.
+- [x] Stop/rebuild/resume for ROSpec-affecting changes.
+- [x] Serialize reader-configuration writes through `SET_READER_CONFIG`.
+- [x] Reject transport/TLS/session-setup changes while connected and require reconnect.
+- [x] Capture the previous known-good configuration before multi-step transitions.
+- [x] Commit new desired/runtime state only after the required operation succeeds.
+- [x] Roll back to the old configuration when a live transition fails.
+- [x] Enter a disconnected protocol state when rollback cannot restore a known-good state.
+- [x] Test successful live ROSpec transitions.
+- [x] Test reader-config failure rollback.
+- [x] Test inventory restart failure plus successful rollback.
+- [x] Test restart failure plus rollback failure -> disconnected safe state.
+- [x] Test no-op/client-only transitions produce no unnecessary reader traffic.
 
-### Likely classification starting point
-
-```text
-Setting                       Likely action
--------------------------------------------------------
-logging/debug                 client-only
-report selector               ROSpec rebuild
-antennas                      ROSpec rebuild
-TX power                      targeted live/rebuild
-session                       ROSpec rebuild
-Tari                          ROSpec rebuild
-reader mode                   ROSpec rebuild
-frequency/channel list        ROSpec/vendor dependent
-vendor extensions             extension dependent
-host/port/TLS endpoint        reconnect
-```
+Hardware still needs to confirm which reader/vendor combinations accept each live transition exactly as expected; the software failure semantics no longer depend on that validation.
 
 ---
 
-## 2. Make desired, generated and applied state explicit
+## 2. Desired, generated, reported, and applied state
 
-**Priority:** High
-
-The new `reader_config_summary` gives us a first reader-reported view. The remaining architecture should stop treating three distinct concepts as interchangeable.
+These are now explicitly separated instead of treating `self.config` as proof that the reader applied a setting.
 
 ```text
-+---------------------+
-| desired config      |
-| what app wants      |
-+---------------------+
++-------------------+
+| desired           |
+| application wants |
++-------------------+
           |
           v
-+---------------------+
-| generated protocol  |
-| ROSpec / AccessSpec |
-+---------------------+
++-------------------+
+| generated ROSpec  |
++-------------------+
           |
           v
-+---------------------+
-| applied/reported    |
-| what reader confirms|
-+---------------------+
++-------------------+
+| applied snapshot  |
+| acknowledged flow |
++-------------------+
+
+GET_READER_CONFIG
+       |
+       v
++-------------------+
+| reported_reader   |
++-------------------+
 ```
 
-- [x] Introduce explicit desired/applied naming or structures.
-- [x] Track generated ROSpec/AccessSpec independently from desired config.
-- [x] Record acknowledgement/verification state for transitions.
-- [x] Represent unknown/unconfirmed applied values honestly.
-- [x] Make reconnect reconstruct state from desired config, not stale generated caches.
-- [ ] Extend `reader_config_summary` only where standard LLRP or vendor adapters provide trustworthy evidence.
+- [x] Track desired configuration explicitly.
+- [x] Track the config snapshot used to generate the current ROSpec.
+- [x] Track an applied snapshot when inventory reaches the active state.
+- [x] Clear applied state on disconnect.
+- [x] Keep normalized reader-reported state separate from desired state.
+- [x] Represent unconfirmed/unknown state as absent/`None` rather than inventing values.
+- [x] Reconnect/session reset discards generated/applied caches and reconstructs from desired config.
+- [x] Limit generic `reader_config_summary` to standard fields whose semantics are trustworthy.
+- [x] Keep vendor-specific values out of the generic normalized model unless they are explicitly namespaced/adapter-owned.
 
 ---
 
-## 3. Improve request/deferred correlation
+## 3. Request/deferred correlation and failure semantics
 
-**Priority:** Medium-High  
-**Physical reader required:** No
-
-Current pending work is primarily grouped by expected response name. This prevents many duplicate outstanding request types, but it is restrictive and makes future management operations harder.
-
-```text
-Request A: GET_READER_CONFIG ID=100
-Request B: GET_READER_CONFIG ID=101
-        \                         /
-         \                       /
-          same response message type
-```
-
-Target:
+Tracked requests are registered **before transport write** and correlated with the LLRP message ID plus expected response type.
 
 ```text
 outbound request
-      |
-      v
-pending[(response_type, message_id)]
-      |
-      v
+       |
+       v
+register (response_type, message_id)
+       |
+       v
+transport write
+       |
+       v
 incoming response
+       |
+       v
+validate type + ID
+       |
+       +---- exact match -> finish callback once
+       |
+       +---- wrong ID -> ignore/log
+       |
+       +---- stale/duplicate -> ignore/log
+```
+
+- [x] Audit tracked request/deferred registration paths.
+- [x] Register pending state before sending bytes, closing the fast-response race.
+- [x] Correlate tracked operations by response type + LLRP message ID.
+- [x] Validate message ID before consuming a pending request.
+- [x] Ignore stale/duplicate responses deterministically.
+- [x] Ignore wrong-ID responses without consuming the real pending request.
+- [x] Add configurable positive `request_timeout` support (`None` preserves legacy no-timeout behavior).
+- [x] Cancel request timers/pending state during session reset.
+- [x] Roll back pending/state registration if the transport write itself fails.
+- [x] Ensure negative LLRP responses fire their pending callback with failure before the historical raise/return behavior.
+- [x] Keep the historical `sendMessage()` mocking/extension seam compatible.
+- [x] Keep same-response-type concurrency disabled by default. This is an intentional safety policy, not an unfinished implementation; enable it only after representative reader firmware proves predictable pipelining behavior.
+
+---
+
+## 4. Callback registry concurrency
+
+```text
+registry mutation
       |
-extract type + ID
+    RLock
+      |
+ snapshot ordered callbacks
+      |
+   unlock
       |
       v
-exact pending operation
+invoke application callbacks
 ```
 
-- [x] Audit every `_deferreds` registration path.
-- [x] Correlate pending operations by message ID where practical.
-- [x] Validate response type in addition to ID.
-- [x] Add request timeouts.
-- [x] Cancel pending requests deterministically on disconnect/session reset.
-- [x] Define late/unmatched/duplicate response policy.
-- [x] Test response reordering and stale responses after reconnect.
-- [ ] Only allow concurrent same-type requests if target readers behave predictably.
+- [x] Stable snapshot dispatch for state/message/tag/event/disconnect callbacks.
+- [x] Callback self-removal does not corrupt the current dispatch.
+- [x] Callback addition during dispatch affects the next dispatch.
+- [x] Protect registry add/remove/clear and snapshot capture with `RLock`.
+- [x] Never hold the registry lock while executing application callback code.
+- [x] Add sustained concurrent add/remove stress coverage.
+- [x] Document snapshot/ordering semantics.
 
 ---
 
-## 4. Callback registry synchronization stress testing
+## 5. Timed pause/resume
 
-**Priority:** Medium
+- [x] Validate finite non-negative duration values.
+- [x] Schedule automatic resume only after a successful disable acknowledgement.
+- [x] Cancel/invalidate stale automatic-resume timers.
+- [x] Prevent timers from an old session affecting a new/disconnected session.
+- [x] Support explicit resume while a timer exists.
+- [x] Handle a paused ROSpec that must be regenerated before resume.
+- [x] Document timed pause/resume behavior.
+- [x] Keep the existing state model; a separate `STATE_RESUMING` is not currently necessary because pending `ENABLE_ROSPEC`/start states already expose the transition. Revisit only if a future public API requires a distinct semantic state.
+- [ ] Validate pause/resume timing and command sequencing on representative physical readers.
 
-Stable snapshot dispatch is complete and fixes mutation-during-iteration behavior. A stronger concurrency stress harness is still useful for future no-GIL/free-threaded Python environments.
+---
 
-Current defined semantics:
+## 6. Reader-reported configuration fixtures
+
+Software normalization is implemented. What remains is vendor evidence collection.
+
+- [x] Normalize antenna connected/gain state.
+- [x] Normalize antenna configuration keyed by antenna ID.
+- [x] Normalize keepalive state.
+- [x] Normalize event-notification state.
+- [x] Normalize access-report state.
+- [x] Normalize events/reports state.
+- [x] Normalize GPI/GPO entries.
+- [x] Preserve raw decoded configuration alongside the normalized summary.
+- [x] Normalize additional fields only when their protocol semantics are stable and evidenced.
+- [x] Keep vendor-specific settings namespaced/adapter-specific rather than pretending they are universal LLRP.
+- [ ] Capture representative `GET_READER_CONFIG` responses from Zebra hardware.
+- [ ] Capture representative `GET_READER_CONFIG` responses from Impinj hardware.
+- [ ] Capture representative `GET_READER_CONFIG` responses from Honeywell/Intermec hardware.
+
+---
+
+## 7. Deterministic failure-injection coverage
+
+The coverage is intentionally built from fake transports, synthetic LLRP messages, frame tests, and state-machine tests instead of shipping a fake reader as production code.
+
+- [x] Immediate/re-entrant response during transport write.
+- [x] Wrong message ID.
+- [x] Duplicate/stale response.
+- [x] Request timeout.
+- [x] Transport-write failure.
+- [x] Negative `LLRPStatus` responses.
+- [x] Config-transition success.
+- [x] Mid-transition failure and rollback.
+- [x] Rollback failure -> safe disconnected state.
+- [x] Partial LLRP frames.
+- [x] Multiple/coalesced frames.
+- [x] Disconnect/reconnect stale-state cleanup.
+- [x] Callback/deferred/timer final-state assertions.
+
+---
+
+## 8. Reduce core-file coupling incrementally
+
+The public/core API remains in `sllurp/llrp.py`. Runtime bookkeeping that has a clear independent owner is extracted into `sllurp/llrp_runtime.py`; it is intentionally **not** named `llrp2.py` (which would imply LLRP protocol version 2) or `llrph.py` (opaque purpose).
 
 ```text
-snapshot at dispatch start
-          |
-    +-----+-----+
-    |           |
-remove cb     add cb
-    |           |
-    +-----+-----+
-          |
-changes affect NEXT dispatch
+llrp.py
+  public API + protocol state machine
+       |
+       +---- llrp_runtime.py
+             config transition planning
+             pending request registry
+             request timeout/stale bookkeeping
 ```
 
-- [x] Snapshot callback iteration.
-- [x] Test self-removal.
-- [x] Test callback added during dispatch.
-- [x] Add sustained multi-thread add/remove stress tests.
-- [x] Protect callback registry mutation/snapshot capture with an internal RLock.
-- [x] Document callback ordering/snapshot semantics in public API docs.
+- [x] Make timer ownership explicit per operation/session.
+- [x] Separate pending-request bookkeeping from socket implementation.
+- [x] Keep transport read/write ownership explicit in the reader client.
+- [x] Extract only a boundary with a clear responsibility (`llrp_runtime.py`).
+- [x] Keep the policy that file splitting must clarify ownership rather than merely move lines around.
 
 ---
 
-## 5. Timed pause/resume hardware validation and polish
+# Physical-reader validation still pending
 
-**Priority:** Medium
-
-Timed pause/resume is implemented and covered in synthetic tests.
-
-```text
-INVENTORYING
-     |
- pause(N)
-     v
- PAUSING
-     |
- disable ACK
-     v
-  PAUSED
-     |
- cancellable timer
-     v
- ENABLE_ROSPEC
-     |
- enable ACK
-     v
-INVENTORYING
-```
-
-- [x] Validate duration values.
-- [x] Schedule resume only after successful pause acknowledgement.
-- [x] Cancel explicit/stale timers.
-- [x] Prevent old-session timers from resuming a new/disconnected session.
-- [x] Test automatic resume and disconnect-before-resume.
-- [ ] Validate timing and firmware sequencing on representative physical readers.
-- [x] Add public docs/examples for timed pause.
-- [ ] Consider an explicit `STATE_RESUMING` only if it materially improves API clarity.
-
----
-
-## 6. Expand normalized reader-side configuration
-
-**Priority:** Medium
-
-`reader_config_summary` now normalizes a useful first set of standard fields while raw decoded data remains available.
-
-- [x] antenna connected/gain state
-- [x] antenna configuration keyed by antenna ID
-- [x] keepalive state
-- [x] event notification state
-- [x] access report state
-- [x] events/reports state
-- [x] GPI/GPO entries
-- [ ] Add captured GET_READER_CONFIG fixtures from Zebra readers.
-- [ ] Add captured fixtures from Impinj readers.
-- [ ] Add captured fixtures from Honeywell/Intermec readers.
-- [ ] Normalize additional standard fields only when their semantics are stable.
-- [ ] Keep vendor-specific settings namespaced/adapter-specific rather than pretending they are universal LLRP.
-
----
-
-## 7. Deterministic failure-injection harness
-
-**Priority:** High leverage  
-**Physical reader required:** No
-
-The safest way to keep improving the large core file is a programmable fake reader.
-
-```text
-Sllurp client
-     |
-     v
-+-------------------+
-| fake transport    |
-+-------------------+
-     |
-     v
-+-----------------------------+
-| scripted fake reader        |
-|                             |
-| ADD_ROSPEC    -> success    |
-| ENABLE_ROSPEC -> reject     |
-| DELETE_ROSPEC -> timeout    |
-| socket read   -> disconnect |
-+-----------------------------+
-```
-
-- [x] Script expected outbound sequence.
-- [x] Emit chosen success/failure LLRPStatus values.
-- [x] Delay/reorder/duplicate responses.
-- [x] Drop transport at selected transition points.
-- [x] Inject partial and coalesced frames.
-- [x] Simulate reconnect with stale pending operations.
-- [x] Assert callbacks, deferred cleanup, timers and final state.
-- [x] Use this harness as the gate for the future transactional live-config engine.
-
----
-
-## 8. Incrementally reduce transport/state-machine coupling
-
-**Priority:** Long-term
-
-Avoid a one-shot rewrite of `llrp.py`. Extract tested ownership boundaries incrementally.
-
-```text
-+------------------+
-| Transport        |
-| socket/TLS/I/O   |
-+------------------+
-          |
-          v
-+------------------+
-| Protocol engine  |
-| framing/requests |
-+------------------+
-          |
-          v
-+------------------+
-| Reader state     |
-| ROSpec/config    |
-+------------------+
-          |
-          v
-+------------------+
-| Public client API|
-+------------------+
-```
-
-- [x] Make timer ownership explicit per state/operation.
-- [x] Separate request correlation from socket implementation.
-- [x] Keep transport read/write ownership explicit.
-- [x] Extract one boundary per focused PR with state-transition tests.
-- [ ] Avoid file splitting that merely moves complexity without clarifying ownership.
-
----
-
-# Hardware integration matrix
-
-Hardware does not block the software fixes above, but it is the final interoperability gate.
+These are the only remaining unchecked items from this review because they require real firmware/hardware evidence.
 
 ## Reader families
 
-- [ ] Zebra fixed reader
-- [ ] Impinj fixed reader
-- [ ] Honeywell/Intermec reader
+- [ ] Zebra fixed reader.
+- [ ] Impinj fixed reader.
+- [ ] Honeywell/Intermec reader.
 
 ## Scenarios
 
-- [ ] Plain LLRP initial connection/inventory.
+- [ ] Plain LLRP initial connection and inventory.
 - [ ] Secure LLRP/TLS where supported.
-- [ ] Physical network interruption/reconnect.
+- [ ] Physical network interruption and reconnect.
 - [ ] Timed pause/resume.
-- [ ] Reader reboot with client running.
-- [ ] Multiple reconnect cycles with no stale timers/deferreds.
-- [ ] Reader invalid-setting rejection.
-- [ ] Compare requested config with GET_READER_CONFIG reported state.
-- [ ] Future transactional live config changes once implemented.
+- [ ] Reader reboot while the client remains running.
+- [ ] Multiple reconnect cycles with no stale timers/pending requests.
+- [ ] Reader-side invalid-setting rejection/status codes.
+- [ ] Compare desired config with real `GET_READER_CONFIG` reported state.
+- [ ] Transactional live configuration changes on representative firmware.
+- [ ] Same-response-type request pipelining only if a supported reader actually demonstrates safe behavior.
 
-Hardware validation answers firmware-specific questions; Python concurrency, validation, timer cancellation, framing and state-machine invariants remain CI responsibilities.
-
-
-## Software completion boundary
-
-All software-only items from this review are now implemented or explicitly
-classified with safe behavior.  Remaining unchecked items require physical
-reader captures/firmware interoperability validation, or are optional future
-API choices rather than correctness gaps.
+Hardware validation is for firmware timing, vendor-specific omissions/rejections, TLS behavior, and real reader sequencing. Python concurrency, validation, framing, timeout, rollback, stale-response, and state-machine invariants are CI responsibilities and are implemented/tested in software.
