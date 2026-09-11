@@ -95,6 +95,43 @@ FXR90 management is also available through Zebra IoT Connector local REST using
 inventory/control protocol; the REST adapter is for the reader's separate web
 management surface.
 
+Zebra tag phase reporting
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Readers implementing Zebra/Motorola custom LLRP report parameters can request
+phase data with ``zebra_tag_content_selector``.  Reported ``MotoTagPhase``
+values are decoded to degrees::
+
+    config = LLRPReaderConfig({
+        "zebra_tag_content_selector": {
+            "EnableZoneID": False,
+            "EnableZoneName": False,
+            "EnableAntennaPhysicalPortConfig": False,
+            "EnablePhase": True,
+            "EnableGPS": False,
+            "EnableMLTReport": False,
+        }
+    })
+
+The selector is part of the ROSpec, so changing it through transactional
+``apply_config()`` causes a controlled ROSpec replacement rather than a reconnect.
+Transmit-power capability parsing also preserves reader-advertised indexes,
+including readers whose power table starts at index 0.
+
+RF telemetry mode
+~~~~~~~~~~~~~~~~~
+
+For applications that need raw RF observations rather than one radio-wide tag
+identity, use ``rf_telemetry_mode``.  ``standard`` preserves per-antenna LLRP
+telemetry; ``zebra`` additionally requests Zebra/Motorola phase and physical-port
+telemetry.  The default is ``off`` so existing inventory behavior is unchanged::
+
+    config = LLRPReaderConfig({"rf_telemetry_mode": "zebra"})
+
+See ``docs/rf-telemetry.rst`` for the data-flow diagrams, deduplication behavior,
+and the boundary between sllurp acquisition and a future localization/vector
+analysis library.
+
 Reader API
 ----------
 

@@ -2472,6 +2472,7 @@ Param_struct["ROReportSpec"] = {
     "o_fields": [
         "TagReportContentSelector",
         "ImpinjTagReportContentSelector",
+        "MotoTagReportContentSelector",
     ],
     "encode": encode_ROReportSpec,
     "decode": decode_ROReportSpec,
@@ -2677,6 +2678,7 @@ Param_struct["TagReportData"] = {
         "ImpinjSerializedTID",
         "ImpinjGPSCoordinates",
         "ImpinjTxPower",
+        "MotoTagPhase",
     ],
     "decode": decode_TagReportData,
 }
@@ -4305,6 +4307,65 @@ Param_struct["MotoTagReportMode"] = {
 }
 
 
+# MotoTagReportContentSelector / MotoTagPhase
+
+def encode_MotoTagReportContentSelector(par, param_info):
+    flags = 0
+    bit = 31
+    for field in param_info["fields"]:
+        if field == "CustomParameter":
+            continue
+        if par.get(field, False):
+            flags |= BIT(bit)
+        bit -= 1
+    return uint_pack(flags)
+
+
+def decode_MotoTagReportContentSelector(data, name=None):
+    logger.debugfast("decode_MotoTagReportContentSelector")
+    flags = uint_unpack(data[:uint_size])[0]
+    par = {}
+    bit = 31
+    for field in Param_struct["MotoTagReportContentSelector"]["fields"]:
+        if field == "CustomParameter":
+            continue
+        par[field] = flags & BIT(bit) == BIT(bit)
+        bit -= 1
+    return par, ""
+
+
+Param_struct["MotoTagReportContentSelector"] = {
+    "type": TYPE_CUSTOM,
+    "vendorid": VENDOR_ID_MOTOROLA,
+    "subtype": 708,
+    "fields": [
+        "EnableZoneID",
+        "EnableZoneName",
+        "EnableAntennaPhysicalPortConfig",
+        "EnablePhase",
+        "EnableGPS",
+        "EnableMLTReport",
+    ],
+    "encode": encode_MotoTagReportContentSelector,
+    "decode": decode_MotoTagReportContentSelector,
+}
+
+
+def decode_MotoTagPhase(data, name=None):
+    logger.debugfast("decode_MotoTagPhase")
+    raw_phase = short_unpack(data[:short_size])[0]
+    return raw_phase * 180.0 / 0x8000, ""
+
+
+Param_struct["MotoTagPhase"] = {
+    "type": TYPE_CUSTOM,
+    "vendorid": VENDOR_ID_MOTOROLA,
+    "subtype": 709,
+    "fields": [],
+    "decode": decode_MotoTagPhase,
+}
+
+
 # MotoFilterCapabilities
 def decode_MotoFilterCapabilities(data, name=None):
     logger.debugfast("decode_MotoFilterCapabilities")
@@ -4697,6 +4758,7 @@ class LLRPROSpec(dict):
         tag_filter_mask=[],
         impinj_search_mode=None,
         impinj_tag_content_selector=None,
+        zebra_tag_content_selector=None,
         frequencies=None,
         impinj_fixed_frequency=None,
     ):
@@ -4812,6 +4874,11 @@ class LLRPROSpec(dict):
                     ],
                 },
             }
+
+        if zebra_tag_content_selector:
+            self["ROReportSpec"]["MotoTagReportContentSelector"] = dict(
+                zebra_tag_content_selector
+            )
 
         ips = self["AISpec"][0]["InventoryParameterSpec"][0]
 

@@ -57,6 +57,17 @@ SOCKET_RECV_CHUNK = 64 * 1024
 DEFAULT_MAX_MESSAGE_SIZE = 16 * 1024 * 1024
 ZEBRA_TIMED_DEDUP_MAX_SECONDS = 600
 
+
+def _build_tag_deduplicator(config):
+    if config.dedup_seconds is None:
+        return None
+    return TagReportDeduplicator(
+        window_seconds=config.dedup_seconds,
+        include_antenna=getattr(config, "rf_telemetry_mode", "off") != "off",
+        max_entries=config.dedup_max_entries,
+    )
+
+
 all_reader_refs = WeakSet()
 logger = get_logger(__name__)
 
@@ -399,6 +410,7 @@ class LLRPClient:
         self.peername = None
 
         self.tx_power_table = []
+        self.tx_power_indices = set()
 
         if config.reset_on_connect:
             logger.info("will reset reader state on connect")
@@ -746,8 +758,16 @@ class LLRPClient:
 
         # parse available transmit power entries, set self.tx_power
         bandcap = capdict["RegulatoryCapabilities"]["UHFBandCapabilities"]
+        power_entries = bandcap.get("TransmitPowerLevelTableEntry", [])
+        if isinstance(power_entries, dict):
+            power_entries = [power_entries]
+        self.tx_power_indices = {int(entry["Index"]) for entry in power_entries}
         self.tx_power_table = self.parsePowerTable(bandcap)
-        logger.debugfast("tx_power_table: %s", self.tx_power_table)
+        logger.debugfast(
+            "tx_power_table: %s (indexes=%s)",
+            self.tx_power_table,
+            sorted(self.tx_power_indices),
+        )
         if self.config.tx_power_dbm is not None:
             self.setTxPowerDbm(self.config.tx_power_dbm)
         else:
@@ -830,6 +850,16 @@ class LLRPClient:
         requested = self.config.dedup_backend
         if seconds is None:
             self.dedup_backend_active = "disabled"
+            return self.dedup_backend_active
+
+        telemetry_mode = getattr(self.config, "rf_telemetry_mode", "off")
+        if telemetry_mode != "off":
+            if requested == "hardware":
+                raise ReaderConfigurationError(
+                    "hardware timed dedup is incompatible with RF telemetry mode; "
+                    "use dedup_backend='memory' or disable timed dedup"
+                )
+            self.dedup_backend_active = "memory"
             return self.dedup_backend_active
 
         if requested == "memory":
@@ -1588,6 +1618,7 @@ class LLRPClient:
             tag_population=config.tag_population,
             frequencies=config.frequencies,
             impinj_fixed_frequency=config.impinj_fixed_frequency,
+            zebra_tag_content_selector=config.zebra_tag_content_selector,
         )
         if config.tag_filter_mask is not None:
             rospec_kwargs["tag_filter_mask"] = config.tag_filter_mask
@@ -1671,62 +1702,78 @@ class LLRPClient:
         [0]
         """
         bandtbl = uhfbandcap.get("TransmitPowerLevelTableEntry", [])
-        tx_power_table = [0] * (len(bandtbl) + 1)
-        for v in bandtbl:
-            idx = v["Index"]
-            tx_power_table[idx] = int(v["TransmitPowerValue"]) / 100.0
+        if isinstance(bandtbl, dict):
+            bandtbl = [bandtbl]
+        if not bandtbl:
+            return [0]
+        indexes = [int(entry["Index"]) for entry in bandtbl]
+        if min(indexes) < 0:
+            raise LLRPError("transmit power indexes must be non-negative")
+        tx_power_table = [0] * (max(indexes) + 1)
+        for entry in bandtbl:
+            idx = int(entry["Index"])
+            tx_power_table[idx] = int(entry["TransmitPowerValue"]) / 100.0
 
         return tx_power_table
 
-    def get_tx_power(self, tx_power):
-        """Validates tx_power against self.tx_power_table
+    def get_tx_power(self, tx_power, zero_is_max=True):
+        """Validate power indexes while preserving the reader's real index values.
 
-        @param tx_power: index into the self.tx_power_table list; if tx_power
-            is 0 then the max power from self.tx_power_table
-        @return: a dict {antenna: (tx_power_index, power_dbm)} from
-            self.tx_power_table
-        @raise: LLRPError if the requested index is out of range
+        ``zero_is_max`` keeps the historical public API where power index 0
+        requests maximum power. Internal dBm selection disables that alias so
+        readers whose capability table genuinely starts at index 0 remain usable.
         """
         if not self.tx_power_table:
             logger.warning("get_tx_power(): tx_power_table is empty!")
             return {}
 
+        valid_indices = set(self.tx_power_indices)
+        if not valid_indices:
+            valid_indices = set(range(len(self.tx_power_table)))
+        if not valid_indices:
+            return {}
+
         logger.debugfast("requested tx_power: %s", tx_power)
-        min_power = self.tx_power_table.index(min(self.tx_power_table))
-        max_power = self.tx_power_table.index(max(self.tx_power_table))
+        max_power_idx = max(valid_indices, key=lambda idx: self.tx_power_table[idx])
+        min_available = min(valid_indices)
+        max_available = max(valid_indices)
 
         ret = {}
-        for antid, tx_power in tx_power.items():
-            if tx_power == 0:
-                # tx_power = 0 means max power
-                max_power_dbm = max(self.tx_power_table)
-                tx_power = self.tx_power_table.index(max_power_dbm)
-                ret[antid] = (tx_power, max_power_dbm)
-
-            if (
-                not isinstance(tx_power, int)
-                or tx_power < 0
-                or tx_power >= len(self.tx_power_table)
-            ):
+        for antid, requested_index in tx_power.items():
+            if isinstance(requested_index, bool) or not isinstance(requested_index, int):
+                raise LLRPError(f"Invalid tx_power for antenna {antid}: {requested_index!r}")
+            selected_index = requested_index
+            if requested_index == 0 and zero_is_max:
+                selected_index = max_power_idx
+            if selected_index not in valid_indices:
                 raise LLRPError(
-                    "Invalid tx_power for antenna {}: "
-                    "requested={}, min_available={}, "
-                    "max_available={}".format(antid, tx_power, min_power, max_power)
+                    "Invalid tx_power for antenna {}: requested={}, "
+                    "min_available={}, max_available={}".format(
+                        antid, requested_index, min_available, max_available
+                    )
                 )
-            power_dbm = self.tx_power_table[tx_power]
-            ret[antid] = (tx_power, power_dbm)
+            ret[antid] = (selected_index, self.tx_power_table[selected_index])
         return ret
 
     def setTxPowerDbm(self, tx_pow_dbm=None):
+        valid_indices = set(self.tx_power_indices)
+        if not valid_indices:
+            valid_indices = set(range(len(self.tx_power_table)))
+        if not valid_indices:
+            raise LLRPError("reader did not report any transmit power levels")
+
         if tx_pow_dbm is None:
-            # select max TX power
-            max_power_idx = self.tx_power_table.index(max(self.tx_power_table))
+            max_power_idx = max(valid_indices, key=lambda idx: self.tx_power_table[idx])
             ret_tx_power = {ant: max_power_idx for ant in self.config.antennas}
         else:
             ret_config_dbm = {}
             ret_tx_power = {}
             for antid, req_dbm in tx_pow_dbm.items():
-                tx_power, real_dbm = find_closest(self.tx_power_table, req_dbm)
+                tx_power = min(
+                    valid_indices,
+                    key=lambda idx: abs(self.tx_power_table[idx] - req_dbm),
+                )
+                real_dbm = self.tx_power_table[tx_power]
                 ret_config_dbm[antid] = req_dbm
                 ret_tx_power[antid] = tx_power
                 logger.debug(
@@ -1737,14 +1784,11 @@ class LLRPClient:
                 )
             self.config.tx_power_dbm = ret_config_dbm
 
-        self.setTxPower(ret_tx_power)
+        self.setTxPower(ret_tx_power, zero_is_max=False)
 
-    def setTxPower(self, tx_power):
-        """Set the transmission power for one or more antennas.
-
-        @param tx_power: index into self.tx_power_table
-        """
-        tx_pow_validated = self.get_tx_power(tx_power)
+    def setTxPower(self, tx_power, zero_is_max=True):
+        """Set transmission power using reader-advertised table indexes."""
+        tx_pow_validated = self.get_tx_power(tx_power, zero_is_max=zero_is_max)
         logger.debugfast("tx_pow_validated: %s", tx_pow_validated)
         needs_update = False
         for ant, (tx_pow_idx, tx_pow_dbm) in tx_pow_validated.items():
@@ -1982,6 +2026,7 @@ class LLRPReaderConfig:
         self.dedup_seconds = None
         self.dedup_backend = "auto"
         self.dedup_max_entries = 1_000_000
+        self.rf_telemetry_mode = "off"
         self.socket_receive_buffer_bytes = 1 << 20
         self.max_message_size = DEFAULT_MAX_MESSAGE_SIZE
         self.request_timeout = None
@@ -2050,6 +2095,7 @@ class LLRPReaderConfig:
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
+        self.zebra_tag_content_selector = None
         self.impinj_event_selector = None
 
         self.keepalive_interval = (
@@ -2137,6 +2183,60 @@ class LLRPReaderConfig:
                 "automatic or multiple frequency selection requires "
                 "impinj_fixed_frequency=True because it uses an Impinj vendor extension"
             )
+
+        if not isinstance(self.rf_telemetry_mode, str):
+            raise LLRPError("rf_telemetry_mode must be one of: off, standard, zebra")
+        self.rf_telemetry_mode = self.rf_telemetry_mode.strip().lower()
+        if self.rf_telemetry_mode not in {"off", "standard", "zebra"}:
+            raise LLRPError("rf_telemetry_mode must be one of: off, standard, zebra")
+
+        if self.rf_telemetry_mode != "off":
+            if not isinstance(self.tag_content_selector, dict):
+                raise LLRPError("tag_content_selector must be a dict in RF telemetry mode")
+            self.tag_content_selector.update(
+                {
+                    "EnableROSpecID": True,
+                    "EnableAntennaID": True,
+                    "EnableChannelIndex": True,
+                    "EnablePeakRSSI": True,
+                    "EnableFirstSeenTimestamp": True,
+                    "EnableLastSeenTimestamp": True,
+                    "EnableTagSeenCount": True,
+                }
+            )
+
+        if self.rf_telemetry_mode == "zebra":
+            selector = dict(self.zebra_tag_content_selector or {})
+            selector.setdefault("EnableZoneID", False)
+            selector.setdefault("EnableZoneName", False)
+            selector["EnableAntennaPhysicalPortConfig"] = True
+            selector["EnablePhase"] = True
+            selector.setdefault("EnableGPS", False)
+            selector.setdefault("EnableMLTReport", False)
+            self.zebra_tag_content_selector = selector
+
+        if self.zebra_tag_content_selector is not None:
+            if not isinstance(self.zebra_tag_content_selector, dict):
+                raise LLRPError("zebra_tag_content_selector must be a dict or None")
+            allowed_zebra_report_fields = {
+                "EnableZoneID",
+                "EnableZoneName",
+                "EnableAntennaPhysicalPortConfig",
+                "EnablePhase",
+                "EnableGPS",
+                "EnableMLTReport",
+            }
+            unknown = set(self.zebra_tag_content_selector) - allowed_zebra_report_fields
+            if unknown:
+                raise LLRPError(
+                    "unknown zebra_tag_content_selector field(s): "
+                    + ", ".join(sorted(unknown))
+                )
+            if any(
+                not isinstance(value, bool)
+                for value in self.zebra_tag_content_selector.values()
+            ):
+                raise LLRPError("zebra_tag_content_selector values must be bool")
 
         if self.dedup_seconds is not None:
             if (
@@ -2235,14 +2335,7 @@ class LLRPReaderClient:
         else:
             self.config = LLRPReaderConfig()
 
-        self._deduplicator = (
-            TagReportDeduplicator(
-                window_seconds=self.config.dedup_seconds,
-                max_entries=self.config.dedup_max_entries,
-            )
-            if self.config.dedup_seconds is not None
-            else None
-        )
+        self._deduplicator = _build_tag_deduplicator(self.config)
 
         # New llrp client
         self.llrp = LLRPClient(
@@ -2289,14 +2382,7 @@ class LLRPReaderClient:
                 "disconnect first or use a targeted live setter"
             )
 
-        new_deduplicator = (
-            TagReportDeduplicator(
-                window_seconds=new_config.dedup_seconds,
-                max_entries=new_config.dedup_max_entries,
-            )
-            if new_config.dedup_seconds is not None
-            else None
-        )
+        new_deduplicator = _build_tag_deduplicator(new_config)
         if self.llrp:
             self.llrp.update_config(new_config)
 
@@ -2330,14 +2416,7 @@ class LLRPReaderClient:
         def completed(transition):
             if transition.succeeded:
                 self.config = new_config
-                self._deduplicator = (
-                    TagReportDeduplicator(
-                        window_seconds=new_config.dedup_seconds,
-                        max_entries=new_config.dedup_max_entries,
-                    )
-                    if new_config.dedup_seconds is not None
-                    else None
-                )
+                self._deduplicator = _build_tag_deduplicator(new_config)
                 if self.llrp.state == LLRPReaderState.STATE_INVENTORYING:
                     self._schedule_duration_disconnect()
             else:

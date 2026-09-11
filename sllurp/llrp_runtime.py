@@ -44,6 +44,8 @@ CONFIG_FIELD_POLICY = {
     "impinj_search_mode": ACTION_ROSPEC,
     "impinj_reports": ACTION_ROSPEC,
     "impinj_tag_content_selector": ACTION_ROSPEC,
+    "zebra_tag_content_selector": ACTION_ROSPEC,
+    "rf_telemetry_mode": ACTION_ROSPEC,
     # SET_READER_CONFIG behavior.
     "event_selector": ACTION_READER_CONFIG,
     "gpi_ports_config": ACTION_READER_CONFIG,
