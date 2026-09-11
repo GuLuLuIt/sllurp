@@ -200,7 +200,7 @@ READER_PROFILES = (
         ("IF2",),
         secure_llrp=True,
         llrp_version="1.0.1",
-        notes="IF2 exposes unsecure LLRP on 5084 and secure LLRP/TLS on 5085.",
+        notes="IF2 exposes unencrypted LLRP on 5084 and secure LLRP/TLS on 5085.",
     ),
     _profile(
         "honeywell-intermec-if61",

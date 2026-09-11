@@ -268,8 +268,8 @@ def test_reader_config_validation_edges():
         client_config(tx_power="max")
     with pytest.raises(LLRPError, match="Must specify tx_power"):
         client_config(antennas=[1, 2], tx_power_dbm={1: 10.0})
-    with pytest.raises(LLRPError, match="tx_power must be dict or float"):
-        client_config(tx_power_dbm=10)
+    int_config = client_config(tx_power_dbm=10)
+    assert int_config.tx_power_dbm == {1: 10.0}
 
     config = client_config(antennas=[1, 2], tx_power_dbm=12.5)
     assert config.tx_power_dbm == {1: 12.5, 2: 12.5}

@@ -98,20 +98,39 @@ def msg_header_encode(msgtype, version, length, msgid, vendorid=0, subtype=0):
 
 
 def msg_header_decode(data):
-    msgtype, length, msgid = msg_header_unpack(data[:msg_header_size])
+    if len(data) < msg_header_size:
+        raise ValueError(
+            f"truncated LLRP message header: need {msg_header_size} bytes, got {len(data)}"
+        )
+    try:
+        msgtype, length, msgid = msg_header_unpack(data[:msg_header_size])
+    except StructError as exc:
+        raise ValueError("invalid LLRP message header") from exc
     hdr_len = msg_header_size
     # & BITMASK(3)
     version = (msgtype >> 10) & 0x07
     # & BITMASK(10)
     msgtype = msgtype & 0x03FF
     if msgtype == TYPE_CUSTOM:
-        vendorid, subtype = msg_vendor_subtype_unpack(
-            data[hdr_len : hdr_len + msg_vendor_subtype_size]
-        )
-        hdr_len += msg_vendor_subtype_size
+        custom_size = hdr_len + msg_vendor_subtype_size
+        if len(data) < custom_size:
+            raise ValueError(
+                f"truncated custom LLRP header: need {custom_size} bytes, got {len(data)}"
+            )
+        try:
+            vendorid, subtype = msg_vendor_subtype_unpack(
+                data[hdr_len:custom_size]
+            )
+        except StructError as exc:
+            raise ValueError("invalid custom LLRP message header") from exc
+        hdr_len = custom_size
     else:
         vendorid = 0
         subtype = 0
+    if length < hdr_len:
+        raise ValueError(
+            f"declared LLRP message length {length} is shorter than header {hdr_len}"
+        )
     return msgtype, vendorid, subtype, version, hdr_len, length, msgid
 
 
@@ -122,6 +141,10 @@ def tlv_param_header_decode(data):
 
     partype, length = tlv_par_header_unpack(data[:tlv_par_header_size])
     hdr_len = tlv_par_header_size
+    if length < hdr_len:
+        raise ValueError(
+            f"declared TLV parameter length {length} is shorter than header {hdr_len}"
+        )
     # ie partype & BITMASK(10)
     partype = partype & 0x03FF
     if partype != TYPE_CUSTOM:
@@ -131,6 +154,10 @@ def tlv_param_header_decode(data):
     if len(data) < custom_header_size:
         return None, 0, 0, 0, 0
 
+    if length < custom_header_size:
+        raise ValueError(
+            f"declared custom parameter length {length} is shorter than header {custom_header_size}"
+        )
     vendorid, subtype = par_vendor_subtype_unpack(
         data[hdr_len : hdr_len + par_vendor_subtype_size]
     )

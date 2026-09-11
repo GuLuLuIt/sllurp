@@ -5,6 +5,7 @@ from binascii import hexlify
 from collections import defaultdict
 from socket import (
     AF_INET,
+    AF_INET6,
     SOCK_STREAM,
     SHUT_RDWR,
     SOL_SOCKET,
@@ -15,7 +16,7 @@ from socket import (
     socket,
     error as SocketError,
 )
-from threading import Thread, Event
+from threading import Thread, Event, Timer
 from weakref import WeakSet
 
 from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ, VENDOR_ID_MOTOROLA
@@ -46,6 +47,7 @@ LLRP_SECURE_PORT = 5085
 LLRP_MSG_ID_MAX = 4294967295
 THREAD_NAME_PREFIX = "sllurp-reader"
 SOCKET_RECV_CHUNK = 64 * 1024
+DEFAULT_MAX_MESSAGE_SIZE = 16 * 1024 * 1024
 ZEBRA_TIMED_DEDUP_MAX_SECONDS = 600
 
 all_reader_refs = WeakSet()
@@ -113,9 +115,20 @@ class LLRPMessage:
         if self.msgbytes is None:
             raise LLRPError("No message bytes to deserialize.")
         data = self.msgbytes
-        msgtype, vendorid, subtype, ver, hdr_len, full_length, msgid = (
-            msg_header_decode(data)
-        )
+        try:
+            msgtype, vendorid, subtype, ver, hdr_len, full_length, msgid = (
+                msg_header_decode(data)
+            )
+        except ValueError as exc:
+            raise LLRPError(f"Invalid LLRP message header: {exc}") from exc
+        if full_length < hdr_len:
+            raise LLRPError(
+                f"Invalid LLRP message length {full_length}; header is {hdr_len} bytes"
+            )
+        if full_length > len(data):
+            raise LLRPError(
+                f"Truncated LLRP message: declared {full_length} bytes, got {len(data)}"
+            )
         try:
             try:
                 name = get_message_name_from_type(msgtype, vendorid, subtype)
@@ -385,14 +398,7 @@ class LLRPClient:
         if config.start_inventory:
             logger.info("will start inventory on connect")
 
-        if (
-            config.impinj_search_mode
-            or config.impinj_tag_content_selector
-            or config.impinj_extended_configuration
-            or config.impinj_event_selector
-            or config.frequencies.get("Automatic", False)
-            or len(config.frequencies.get("ChannelList", [])) > 1
-        ):
+        if self._uses_impinj_extensions():
             logger.info("Enabling Impinj extensions")
 
         logger.info("using antennas: %s", config.antennas)
@@ -414,6 +420,16 @@ class LLRPClient:
         Not completely safe, to be used with caution.
         """
         self.config = new_config
+
+    def _uses_impinj_extensions(self):
+        """Return whether the current configuration explicitly needs Impinj extensions."""
+        return bool(
+            self.config.impinj_search_mode
+            or self.config.impinj_tag_content_selector
+            or self.config.impinj_extended_configuration
+            or self.config.impinj_event_selector
+            or self.config.impinj_fixed_frequency
+        )
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
@@ -660,14 +676,7 @@ class LLRPClient:
                 else:
                     self.panic(None, "GET_READER_CAPABILITIES failed")
 
-            if (
-                self.config.impinj_search_mode
-                or self.config.impinj_tag_content_selector
-                or self.config.impinj_extended_configuration
-                or self.config.impinj_event_selector
-                or self.config.frequencies.get("Automatic", False)
-                or len(self.config.frequencies.get("ChannelList", [])) > 1
-            ):
+            if self._uses_impinj_extensions():
 
                 def enable_impinj_ext_cb(state, is_success, *args):
                     if is_success:
@@ -1263,6 +1272,7 @@ class LLRPClient:
             tari=config.tari,
             tag_population=config.tag_population,
             frequencies=config.frequencies,
+            impinj_fixed_frequency=config.impinj_fixed_frequency,
         )
         if config.tag_filter_mask is not None:
             rospec_kwargs["tag_filter_mask"] = config.tag_filter_mask
@@ -1522,6 +1532,15 @@ class LLRPClient:
         """
         sent_ids = []
         for name in msg_dict:
+            response_name = (
+                "IMPINJ_ENABLE_EXTENSIONS_RESPONSE"
+                if name == "IMPINJ_ENABLE_EXTENSIONS"
+                else f"{name}_RESPONSE"
+            )
+            if self._deferreds.get(response_name):
+                raise ReaderConfigurationError(
+                    f"cannot send {name}: {response_name} is already pending"
+                )
             if self.last_msg_id < LLRP_MSG_ID_MAX:
                 self.last_msg_id += 1
             else:
@@ -1550,12 +1569,13 @@ class LLRPReaderConfig:
         self.dedup_backend = "auto"
         self.dedup_max_entries = 1_000_000
         self.socket_receive_buffer_bytes = 1 << 20
+        self.max_message_size = DEFAULT_MAX_MESSAGE_SIZE
         self.antennas = [1]
         # Use the power associated with an exact tx power index
         self.tx_power = 0
         # Use the power level closest to the requested dbm value
         self.tx_power_dbm = None
-        self.disconnect_when_done = self.duration and self.duration > 0
+        self.disconnect_when_done = False
         self.tag_filter_mask = None
         self.tag_content_selector = {
             "EnableROSpecID": False,
@@ -1611,6 +1631,7 @@ class LLRPReaderConfig:
 
         ## Extensions specific
         self.impinj_extended_configuration = False
+        self.impinj_fixed_frequency = False
         self.impinj_search_mode = None
         self.impinj_reports = False
         self.impinj_tag_content_selector = None
@@ -1620,6 +1641,7 @@ class LLRPReaderConfig:
             60 * 1000
         )  # in ms, 0 = nokeepalive request sent to reader
         self.reconnect_retries = 5
+        self.reconnect_delay = 60.0
         ## If impinj extension, would be like:
         # self.impinj_tag_content_selector = {
         #    'EnableRFPhaseAngle': True,
@@ -1632,6 +1654,8 @@ class LLRPReaderConfig:
 
         if config_dict:
             self.update_config(config_dict)
+            if "disconnect_when_done" not in config_dict:
+                self.disconnect_when_done = bool(self.duration and self.duration > 0)
 
         self.validate_config()
 
@@ -1641,6 +1665,49 @@ class LLRPReaderConfig:
                 setattr(self, key, value)
 
     def validate_config(self):
+        if not isinstance(self.antennas, (list, tuple)) or not self.antennas:
+            raise LLRPError("antennas must be a non-empty list or tuple")
+        if any(isinstance(ant, bool) or not isinstance(ant, int) or ant < 0 for ant in self.antennas):
+            raise LLRPError("antennas must contain non-negative integers")
+        if 0 in self.antennas and len(self.antennas) != 1:
+            raise LLRPError("antenna 0 means all antennas and cannot be combined with others")
+        if (
+            isinstance(self.reconnect_retries, bool)
+            or not isinstance(self.reconnect_retries, int)
+            or self.reconnect_retries < -1
+        ):
+            raise LLRPError("reconnect_retries must be -1 or a non-negative integer")
+        if (
+            isinstance(self.reconnect_delay, bool)
+            or not isinstance(self.reconnect_delay, (int, float))
+            or self.reconnect_delay < 0
+        ):
+            raise LLRPError("reconnect_delay must be a non-negative number")
+        if (
+            self.max_message_size is not None
+            and (
+                isinstance(self.max_message_size, bool)
+                or not isinstance(self.max_message_size, int)
+                or self.max_message_size < msg_header_len
+            )
+        ):
+            raise LLRPError(
+                f"max_message_size must be at least {msg_header_len} bytes or None"
+            )
+        channel_list = self.frequencies.get("ChannelList", [])
+        if not isinstance(channel_list, (list, tuple)) or not channel_list:
+            raise LLRPError("frequencies ChannelList must contain at least one channel")
+        if any(
+            isinstance(channel, bool) or not isinstance(channel, int) or channel <= 0
+            for channel in channel_list
+        ):
+            raise LLRPError("frequency channel indexes must be positive integers")
+        if (self.frequencies.get("Automatic", False) or len(channel_list) > 1) and not self.impinj_fixed_frequency:
+            raise LLRPError(
+                "automatic or multiple frequency selection requires "
+                "impinj_fixed_frequency=True because it uses an Impinj vendor extension"
+            )
+
         if self.dedup_seconds is not None:
             if (
                 isinstance(self.dedup_seconds, bool)
@@ -1687,13 +1754,25 @@ class LLRPReaderConfig:
             else:
                 raise LLRPError("tx_power must be dict or int")
         if hasattr(self, "tx_power_dbm") and self.tx_power_dbm is not None:
-            if isinstance(self.tx_power_dbm, float):
-                self.tx_power_dbm = {ant: self.tx_power_dbm for ant in self.antennas}
+            if (
+                isinstance(self.tx_power_dbm, (int, float))
+                and not isinstance(self.tx_power_dbm, bool)
+            ):
+                value = float(self.tx_power_dbm)
+                self.tx_power_dbm = {ant: value for ant in self.antennas}
             elif isinstance(self.tx_power_dbm, dict):
                 if set(self.antennas) != set(self.tx_power_dbm.keys()):
                     raise LLRPError("Must specify tx_power for each antenna")
+                if any(
+                    isinstance(value, bool) or not isinstance(value, (int, float))
+                    for value in self.tx_power_dbm.values()
+                ):
+                    raise LLRPError("tx_power_dbm values must be numeric")
+                self.tx_power_dbm = {
+                    ant: float(value) for ant, value in self.tx_power_dbm.items()
+                }
             else:
-                raise LLRPError("tx_power must be dict or float")
+                raise LLRPError("tx_power_dbm must be a number or dict")
 
 
 class LLRPReaderClient:
@@ -1716,6 +1795,7 @@ class LLRPReaderClient:
         self.disconnect_requested = Event()
         self._stop_main_loop = Event()
         self._disconnected_notified = False
+        self._duration_timer = None
 
         # for partial data transfers
         self.expected_bytes = 0
@@ -1818,10 +1898,9 @@ class LLRPReaderClient:
             self._llrp_message_callbacks = defaultdict(list)
 
     def add_tag_report_callback(self, cb):
-        if not self._llrp_message_callbacks["RO_ACCESS_REPORT"]:
-            self._llrp_message_callbacks["RO_ACCESS_REPORT"].append(
-                self._on_llrp_tag_report
-            )
+        callbacks = self._llrp_message_callbacks["RO_ACCESS_REPORT"]
+        if self._on_llrp_tag_report not in callbacks:
+            callbacks.append(self._on_llrp_tag_report)
 
         if cb not in self._tag_report_callbacks:
             self._tag_report_callbacks.append(cb)
@@ -1830,14 +1909,13 @@ class LLRPReaderClient:
         if cb in self._tag_report_callbacks:
             self._tag_report_callbacks.remove(cb)
 
-    def clear_tag_report_callback(self, cb):
+    def clear_tag_report_callback(self, cb=None):
         self._tag_report_callbacks = []
 
     def add_event_callback(self, cb):
-        if not self._llrp_message_callbacks["READER_EVENT_NOTIFICATION"]:
-            self._llrp_message_callbacks["READER_EVENT_NOTIFICATION"].append(
-                self._on_llrp_event_notification
-            )
+        callbacks = self._llrp_message_callbacks["READER_EVENT_NOTIFICATION"]
+        if self._on_llrp_event_notification not in callbacks:
+            callbacks.append(self._on_llrp_event_notification)
 
         if cb not in self._event_notification_callbacks:
             self._event_notification_callbacks.append(cb)
@@ -1846,7 +1924,7 @@ class LLRPReaderClient:
         if cb in self._event_notification_callbacks:
             self._event_notification_callbacks.remove(cb)
 
-    def clear_event_callback(self, cb):
+    def clear_event_callback(self, cb=None):
         self._event_notification_callbacks = []
 
     def add_disconnected_callback(self, cb):
@@ -1857,7 +1935,7 @@ class LLRPReaderClient:
         if cb in self._disconnected_callbacks:
             self._disconnected_callbacks.remove(cb)
 
-    def clear_disconnected_callback(self, cb):
+    def clear_disconnected_callback(self, cb=None):
         self._disconnected_callbacks = []
 
     def _create_tls_context(self):
@@ -1892,7 +1970,8 @@ class LLRPReaderClient:
 
         raw_socket = None
         try:
-            raw_socket = socket(AF_INET, SOCK_STREAM)
+            family = AF_INET6 if ":" in self._host else AF_INET
+            raw_socket = socket(family, SOCK_STREAM)
             if self.config.socket_receive_buffer_bytes is not None:
                 raw_socket.setsockopt(
                     SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
@@ -1928,12 +2007,53 @@ class LLRPReaderClient:
         )
         return True
 
+    def _reset_protocol_session(self):
+        """Discard request callbacks and frame state from a previous transport session."""
+        self.partial_data = b""
+        self.expected_bytes = 0
+        if self.llrp:
+            self.llrp._deferreds.clear()
+            self.llrp.rospec = None
+            self.llrp.disconnecting = False
+            self.llrp.state = LLRPReaderState.STATE_DISCONNECTED
+
+    def _retry_connect(self):
+        remaining_attempts = self.config.reconnect_retries
+        last_error = None
+        while remaining_attempts != 0 and not self.disconnect_requested.is_set():
+            try:
+                self._connect_socket()
+                return True
+            except Exception as exc:
+                last_error = exc
+                logger.warning("Reconnection attempt failed: %s", exc)
+            if remaining_attempts > 0:
+                remaining_attempts -= 1
+            if remaining_attempts == 0:
+                break
+            if self.disconnect_requested.wait(self.config.reconnect_delay):
+                break
+        if last_error is not None:
+            raise last_error
+        return False
+
     def connect(self, start_main_loop=True):
         if self._socket_thread:
             raise ReaderConfigurationError("Already connected")
         self.disconnect_requested.clear()
+        self._reset_protocol_session()
 
-        self._connect_socket()
+        try:
+            self._connect_socket()
+        except Exception:
+            if not self.config.reconnect:
+                raise
+            logger.warning("Initial connection failed; applying reconnect policy")
+            try:
+                self._retry_connect()
+            except Exception:
+                self._on_disconnected()
+                raise
 
         if not start_main_loop:
             return
@@ -1984,6 +2104,7 @@ class LLRPReaderClient:
 
     def hard_disconnect(self):
         """Stop the recv worker, close sockets, and reset frame state."""
+        self._cancel_duration_timer()
         self.partial_data = b""
         self.expected_bytes = 0
         self._stop_main_loop.set()
@@ -2035,9 +2156,6 @@ class LLRPReaderClient:
         Return: True if the connection is definitively lost/interrupted.
                 False if it was somehow recovered (reconnected).
         """
-        remaining_attempts = self.config.reconnect_retries
-        retry_delay = 60  # seconds
-
         logger.info("Lost connection detected")
         # When the connection is lost, reset the reader known state
         # so, rospec and config will be restored in case of
@@ -2053,26 +2171,16 @@ class LLRPReaderClient:
         except:
             logger.exception("hard_disconnect error in lost connection")
 
+        self._reset_protocol_session()
         if not self.config.reconnect:
             self._on_disconnected()
             return True
 
-        while remaining_attempts:
-            try:
-                self._connect_socket()
+        try:
+            if self._retry_connect():
                 return False
-            except:
-                logger.warning("Reconnection attempt failed.")
-            if remaining_attempts > 0:
-                remaining_attempts -= 1
-            if remaining_attempts == 0:
-                logger.info("Too many retries. Giving up...")
-                break
-            logger.info("Next connection attempt in %ds", retry_delay)
-            user_disconnected = self.disconnect_requested.wait(retry_delay)
-            if user_disconnected:
-                # Disconnection was requested by user
-                break
+        except Exception:
+            logger.info("Too many retries. Giving up...")
         self._on_disconnected()
         return True
 
@@ -2191,6 +2299,18 @@ class LLRPReaderClient:
                 break
 
             logger.debugfast("expect %d bytes (have %d)", msg_len, data_len)
+            if msg_len < msg_header_len:
+                raise LLRPError(
+                    f"Invalid LLRP message length {msg_len}; minimum is {msg_header_len}"
+                )
+            if (
+                self.config.max_message_size is not None
+                and msg_len > self.config.max_message_size
+            ):
+                raise LLRPError(
+                    f"LLRP message length {msg_len} exceeds configured maximum "
+                    f"{self.config.max_message_size}"
+                )
 
             if data_len < msg_len:
                 # got too few bytes
@@ -2210,11 +2330,9 @@ class LLRPReaderClient:
                     raise
                 except LLRPError:
                     logger.exception(
-                        "Failed to decode LLRPMessage; "
-                        "will not decode %d remaining bytes",
-                        data_len,
+                        "Failed to decode LLRPMessage; disconnecting to avoid frame desynchronization"
                     )
-                    break
+                    raise
         if self.expected_bytes <= 0:
             self.partial_data = b""
 
@@ -2242,7 +2360,32 @@ class LLRPReaderClient:
             accessSpecID=access_spec_id,
         )
 
+    def _cancel_duration_timer(self):
+        timer = self._duration_timer
+        self._duration_timer = None
+        if timer is not None:
+            timer.cancel()
+
+    def _duration_expired(self):
+        self._duration_timer = None
+        if self._socket is not None and not self.disconnect_requested.is_set():
+            logger.info("inventory duration elapsed; disconnecting")
+            self.disconnect()
+
+    def _schedule_duration_disconnect(self):
+        self._cancel_duration_timer()
+        if not self.config.disconnect_when_done:
+            return
+        duration = self.config.duration
+        if duration is None or duration <= 0:
+            return
+        timer = Timer(duration, self._duration_expired)
+        timer.daemon = True
+        self._duration_timer = timer
+        timer.start()
+
     def _on_disconnected(self):
+        self._cancel_duration_timer()
         if self._disconnected_notified:
             return
         self._disconnected_notified = True
@@ -2256,6 +2399,10 @@ class LLRPReaderClient:
 
     def _on_llrp_state_changed(self, newstate):
         """Call user callbacks if needed"""
+        if newstate == LLRPReaderState.STATE_INVENTORYING:
+            self._schedule_duration_disconnect()
+        elif newstate == LLRPReaderState.STATE_DISCONNECTED:
+            self._cancel_duration_timer()
         for fn in self._llrp_state_callbacks[newstate]:
             try:
                 fn(self, newstate)

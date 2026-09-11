@@ -237,10 +237,13 @@ def test_rospec_reader_mode_tari_and_impinj_extensions_are_applied():
     assert selector["ImpinjEnableRFDopplerFrequency"]["RFDopplerFrequencyMode"] is True
 
 
-def test_rospec_tari_at_or_above_mode_max_is_not_overridden():
+def test_rospec_tari_at_mode_max_is_overridden_but_above_max_is_not():
     mode = {"ModeIdentifier": 7, "MinTari": 10, "MaxTari": 20}
     rospec = LLRPROSpec(mode, 1, tari=20)
+    control = _antenna_configs(rospec)[0]["C1G2InventoryCommand"][0]["C1G2RFControl"]
+    assert control == {"ModeIndex": 7, "Tari": 20}
 
+    rospec = LLRPROSpec(mode, 1, tari=21)
     control = _antenna_configs(rospec)[0]["C1G2InventoryCommand"][0]["C1G2RFControl"]
     assert control == {"ModeIndex": 7, "Tari": 0}
 

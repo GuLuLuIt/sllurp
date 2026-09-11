@@ -7,6 +7,7 @@ import csv
 import datetime
 import logging
 
+from sllurp.util import split_host_port
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
 from sllurp.log import get_logger
 
@@ -17,8 +18,9 @@ csvlogger = None
 
 class CsvLogger:
     def __init__(self, filehandle, epc=None, reader_timestamp=False):
-        self.rows = []
         self.filehandle = filehandle
+        self.writer = csv.writer(self.filehandle, dialect="excel")
+        self.writer.writerow(("timestamp", "reader", "antenna", "rssi", "epc"))
         self.num_tags = 0
         self.epc = epc
         self.reader_timestamp = reader_timestamp
@@ -34,19 +36,17 @@ class CsvLogger:
             if self.reader_timestamp:
                 timestamp = tag["LastSeenTimestampUTC"] / 1e6
             else:
-                timestamp = (
-                    datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)
-                ).total_seconds()
+                timestamp = datetime.datetime.now(
+                    datetime.timezone.utc
+                ).timestamp()
             antenna = tag["AntennaID"]
             rssi = tag["PeakRSSI"]
-            self.rows.append((timestamp, reader, antenna, rssi, epc))
+            self.writer.writerow((timestamp, reader, antenna, rssi, epc))
             self.num_tags += tag["TagSeenCount"]
+        self.filehandle.flush()
 
     def flush(self):
-        logger.info("Writing %d rows...", len(self.rows))
-        wri = csv.writer(self.filehandle, dialect="excel")
-        wri.writerow(("timestamp", "reader", "antenna", "rssi", "epc"))
-        wri.writerows(self.rows)
+        self.filehandle.flush()
 
 
 def finish_cb(reader):
@@ -104,6 +104,7 @@ def main(args):
             "ChannelList": frequency_list,
             "Automatic": False,
         },
+        impinj_fixed_frequency=getattr(args, "impinj_fixed_frequency", False),
     )
     if frequency_list[0] == 0:
         factory_args["frequencies"]["Automatic"] = True
@@ -114,12 +115,8 @@ def main(args):
     )
 
     reader_clients = []
-    for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port)
-        else:
-            port = args.port
+    for host_value in args.host:
+        host, port = split_host_port(host_value, args.port)
 
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)

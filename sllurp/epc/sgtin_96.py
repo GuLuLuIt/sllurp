@@ -29,11 +29,17 @@ def parse_sgtin_96(sgtin_96):
     Returns a dictionary of the segments."""
 
     if not sgtin_96:
-        raise Exception("Pass in a value.")
+        raise ValueError("Pass in a value.")
+    if not isinstance(sgtin_96, str) or len(sgtin_96) != 24:
+        raise ValueError("SGTIN-96 must be exactly 24 hexadecimal characters.")
+    try:
+        int(sgtin_96, 16)
+    except ValueError as exc:
+        raise ValueError("SGTIN-96 must contain only hexadecimal characters.") from exc
 
     if not sgtin_96.startswith("30"):
         # not a sgtin, not handled
-        raise Exception("Not SGTIN-96.")
+        raise ValueError("Not SGTIN-96.")
 
     binary = f"{int(sgtin_96, 16):020b}".zfill(96)
 
@@ -48,15 +54,16 @@ def parse_sgtin_96(sgtin_96):
     company_start = 8 + 3 + 3
     company_end = company_start + m
     company_data = int(binary[company_start:company_end], 2)
-    if company_data > pow(10, l):
-        # can't be too large
-        raise Exception("Company value is too large")
+    if company_data >= pow(10, l):
+        raise ValueError("Company value is too large")
     company_prefix = str(company_data).zfill(l)
 
     item_start = company_end
     item_end = item_start + n
     item_data = binary[item_start:item_end]
     item_number = int(item_data, 2)
+    if item_number >= pow(10, k):
+        raise ValueError("Item reference value is too large")
     item_reference = str(item_number).zfill(k)
 
     serial = int(binary[-38:], 2)

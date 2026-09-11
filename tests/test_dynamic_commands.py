@@ -107,6 +107,7 @@ def inventory_args(**overrides):
         impinj_reports=False,
         frequencies="0",
         hoptable_id=1,
+        impinj_fixed_frequency=True,
         **tls_args(),
     )
     values.update(overrides)
@@ -133,6 +134,7 @@ def access_args(**overrides):
         access_password=0,
         frequencies="0",
         hoptable_id=1,
+        impinj_fixed_frequency=True,
         **tls_args(),
     )
     values.update(overrides)
@@ -150,6 +152,7 @@ def log_args(outfile, **overrides):
         reader_timestamp=False,
         frequencies="0",
         hoptable_id=1,
+        impinj_fixed_frequency=True,
         **tls_args(),
     )
     values.update(overrides)
@@ -232,9 +235,8 @@ def test_csv_logger_filters_epc_and_supports_reader_timestamp():
     logger.flush()
 
     assert logger.num_tags == 3
-    assert len(logger.rows) == 1
-    assert logger.rows[0][:4] == (2.0, "reader-a:5084", 2, -40)
-    assert "wanted" in output.getvalue()
+    assert not hasattr(logger, "rows")
+    assert "2.0,reader-a:5084,2,-40,wanted" in output.getvalue()
     assert "ignored" not in output.getvalue()
 
 
