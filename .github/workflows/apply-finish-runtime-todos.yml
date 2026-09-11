@@ -20,7 +20,9 @@ jobs:
       - name: Install test dependencies
         run: pip install -e .[test]
       - name: Apply runtime TODO patch
-        run: python tools/_finish_runtime_todos.py
+        run: |
+          python tools/_fix_finish_patch.py
+          python tools/_finish_runtime_todos.py
       - name: Run full test suite before commit
         run: pytest
       - name: Commit tested result
