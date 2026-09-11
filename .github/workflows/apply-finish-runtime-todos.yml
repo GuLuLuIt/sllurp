@@ -22,6 +22,7 @@ jobs:
       - name: Apply runtime TODO patch
         run: |
           python tools/_fix_finish_patch.py
+          python tools/_fix_finish_patch2.py
           python tools/_finish_runtime_todos.py
       - name: Run full test suite before commit
         run: pytest
