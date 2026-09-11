@@ -1,0 +1,36 @@
+name: Apply core state fixes
+
+on:
+  push:
+    branches:
+      - fix/core-state-bugs-2026-09-11
+    paths:
+      - tools/apply_core_state_fixes.py
+      - .github/workflows/apply-core-state-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/core-state-bugs-2026-09-11
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Apply focused fixes
+        run: python tools/apply_core_state_fixes.py
+      - name: Install test dependencies
+        run: pip install -e .[test]
+      - name: Run full test suite before committing
+        run: pytest
+      - name: Commit focused core fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix core state-machine correctness bugs'
+          git push origin HEAD:fix/core-state-bugs-2026-09-11
