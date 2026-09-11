@@ -14,7 +14,11 @@ class UTCFormatter(logging.Formatter):
     """Logging formatter that emits ISO-8601 UTC timestamps."""
 
     converter = time.gmtime
-    default_msec_format = "%s.%03dZ"
+
+    def formatTime(self, record, datefmt=None):
+        converted = self.converter(record.created)
+        base = time.strftime(datefmt or "%Y-%m-%dT%H:%M:%S", converted)
+        return f"{base}.{int(record.msecs):03d}Z"
 
 
 def set_general_debug(debug=False):
