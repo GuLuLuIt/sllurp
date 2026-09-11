@@ -45,6 +45,16 @@ jobs:
                   'impinj_fixed_frequency=getattr(args, "impinj_fixed_frequency", False),',
               )
 
+          # The legacy dynamic-command fixtures deliberately exercise automatic
+          # frequency selection, which is an Impinj vendor extension. Make that
+          # opt-in explicit instead of weakening production validation.
+          replace(
+              "tests/test_dynamic_commands.py",
+              '''        hoptable_id=1,\n        **tls_args(),\n''',
+              '''        hoptable_id=1,\n        impinj_fixed_frequency=True,\n        **tls_args(),\n''',
+              count=3,
+          )
+
           # A session reset is internal bookkeeping; don't emit a duplicate state callback.
           replace(
               "sllurp/llrp.py",
