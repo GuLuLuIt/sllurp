@@ -8,6 +8,7 @@ __all__ = (
     "llrp_errors",
     "llrp_proto",
     "secure",
+    "readers",
     "reader_management",
     "zebra_management",
     "dedup",
