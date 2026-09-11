@@ -13,16 +13,12 @@ def replace_once(old, new, label):
     text = text.replace(old, new, 1)
 
 
-# Make the existing two-argument processDeferreds compatibility seam use the
-# exact response ID captured at dispatch entry.
 replace_once(
     '''        msgName = lmsg.getName()\n        message_id = self._message_id(lmsg)\n\n        if message_id is not None and msgName.endswith("_RESPONSE"):\n''',
     '''        msgName = lmsg.getName()\n        message_id = self._message_id(lmsg)\n        self._response_message_id = message_id\n\n        if message_id is not None and msgName.endswith("_RESPONSE"):\n''',
     "capture response message ID",
 )
 
-# A negative response is still a terminal response.  Finish/pop the pending
-# operation before preserving the historical raise/return behavior.
 failure_blocks = [
     (
         '''            if not lmsg.isSuccess():\n                status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]\n                err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]\n                logger.fatal("Error %s enabling Impinj extensions: %s", status, err)\n                raise ReaderConfigurationError("ENABLE_IMPINJ_EXTENSIONS failed")\n''',
@@ -65,8 +61,6 @@ for old, new, label in failure_blocks:
 
 llrp_path.write_text(text)
 
-# Add focused tests proving failed protocol responses terminate callbacks and
-# live config transitions have deterministic success/rollback outcomes.
 test_path = ROOT / "tests" / "test_runtime_todos.py"
 test = test_path.read_text()
 addition = r'''
@@ -96,9 +90,12 @@ addition = r'''
         ),
     ],
 )
-def test_negative_responses_finish_pending_callbacks(state, response_name, send_method):
+def test_negative_responses_finish_pending_callbacks(monkeypatch, state, response_name, send_method):
     client = LLRPClient(LLRPReaderConfig(), transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_CONNECTED
+    # This test isolates pending-response semantics; protocol serialization is
+    # independently covered by the existing message/ROSpec tests.
+    monkeypatch.setattr(client, "sendMessage", lambda msg: None)
     calls = []
     send_method(client, lambda current_state, success: calls.append(success))
     message_id = client.last_msg_id
@@ -120,12 +117,7 @@ def test_live_rospec_config_transition_successfully_restarts_inventory(monkeypat
     client = LLRPClient(old, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_INVENTORYING
     client.rospec = {"ROSpecID": 1}
-
-    monkeypatch.setattr(
-        client,
-        "stopPolitely",
-        lambda onCompletion=None, disconnect=False: onCompletion(client.state, True),
-    )
+    monkeypatch.setattr(client, "stopPolitely", lambda onCompletion=None, disconnect=False: onCompletion(client.state, True))
 
     def start(force_regen_rospec=False, onCompletion=None):
         client.setState(LLRPReaderState.STATE_INVENTORYING)
@@ -133,7 +125,6 @@ def test_live_rospec_config_transition_successfully_restarts_inventory(monkeypat
             onCompletion(client.state, True)
 
     monkeypatch.setattr(client, "startInventory", start)
-
     transition = client.apply_config(new)
     assert transition.done and transition.succeeded
     assert client.config is new
@@ -145,13 +136,7 @@ def test_reader_config_transition_failure_rolls_back_old_config(monkeypatch):
     new = LLRPReaderConfig({"keepalive_interval": 2000})
     client = LLRPClient(old, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_CONNECTED
-
-    monkeypatch.setattr(
-        client,
-        "send_SET_READER_CONFIG",
-        lambda onCompletion: onCompletion(client.state, False),
-    )
-
+    monkeypatch.setattr(client, "send_SET_READER_CONFIG", lambda onCompletion: onCompletion(client.state, False))
     transition = client.apply_config(new)
     assert transition.done and not transition.succeeded
     assert client.config is old
@@ -165,12 +150,7 @@ def test_inventory_restart_failure_rolls_back_and_restores_inventory(monkeypatch
     client = LLRPClient(old, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_INVENTORYING
     client.rospec = {"ROSpecID": 1}
-
-    monkeypatch.setattr(
-        client,
-        "stopPolitely",
-        lambda onCompletion=None, disconnect=False: onCompletion(client.state, True),
-    )
+    monkeypatch.setattr(client, "stopPolitely", lambda onCompletion=None, disconnect=False: onCompletion(client.state, True))
     outcomes = [False, True]
 
     def start(force_regen_rospec=False, onCompletion=None):
@@ -181,7 +161,6 @@ def test_inventory_restart_failure_rolls_back_and_restores_inventory(monkeypatch
             onCompletion(client.state, success)
 
     monkeypatch.setattr(client, "startInventory", start)
-
     transition = client.apply_config(new)
     assert transition.done and not transition.succeeded
     assert client.config is old
@@ -196,19 +175,13 @@ def test_inventory_restart_and_rollback_failure_enters_disconnected_state(monkey
     client = LLRPClient(old, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_INVENTORYING
     client.rospec = {"ROSpecID": 1}
-
-    monkeypatch.setattr(
-        client,
-        "stopPolitely",
-        lambda onCompletion=None, disconnect=False: onCompletion(client.state, True),
-    )
+    monkeypatch.setattr(client, "stopPolitely", lambda onCompletion=None, disconnect=False: onCompletion(client.state, True))
 
     def start(force_regen_rospec=False, onCompletion=None):
         if onCompletion:
             onCompletion(client.state, False)
 
     monkeypatch.setattr(client, "startInventory", start)
-
     transition = client.apply_config(new)
     assert transition.done and not transition.succeeded
     assert client.config is old
@@ -217,7 +190,6 @@ def test_inventory_restart_and_rollback_failure_enters_disconnected_state(monkey
 if "test_negative_responses_finish_pending_callbacks" not in test:
     test_path.write_text(test + addition)
 
-# Clean up this one-shot patch machinery from the tested result.
 Path(__file__).unlink()
 workflow = ROOT / ".github" / "workflows" / "post-runtime-hardening.yml"
 if workflow.exists():
