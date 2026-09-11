@@ -12,7 +12,6 @@ interface; use LLRP for RFID control and RShell/SSH for device administration.
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections.abc import Mapping
 from typing import Any
@@ -97,8 +96,8 @@ class ImpinjRESTManager:
 
     def _path(self, resource: str) -> str:
         parsed = urlparse(resource)
-        if parsed.scheme:
-            return resource
+        if parsed.scheme or parsed.netloc:
+            raise ValueError("Impinj REST resources must be paths on the reader host")
         path = "/" + resource.lstrip("/")
         if path == self.api_prefix or path.startswith(self.api_prefix + "/"):
             return path
