@@ -1,0 +1,258 @@
+name: Apply repository audit fixes
+
+on:
+  push:
+    branches: [audit/full-repo-sanity-2026-09-11]
+    paths: [.github/workflows/audit-fix.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: audit/full-repo-sanity-2026-09-11
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Apply proven fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=None):
+              p = Path(path)
+              text = p.read_text()
+              actual = text.count(old)
+              if actual == 0:
+                  raise SystemExit(f"pattern not found in {path}: {old[:80]!r}")
+              if count is not None and actual != count:
+                  raise SystemExit(f"expected {count} occurrences in {path}, found {actual}: {old[:80]!r}")
+              p.write_text(text.replace(old, new))
+
+          # Runtime dependency for hardened XML parsing of reader-controlled responses.
+          replace(
+              'pyproject.toml',
+              'dependencies = [\n    "click",\n]',
+              'dependencies = [\n    "click",\n    "defusedxml>=0.7.1",\n]',
+              1,
+          )
+
+          # HTTPError is a file-like response and must be closed after reading.
+          replace(
+              'sllurp/reader_management.py',
+              '        except HTTPError as exc:\n            error_body = exc.read()\n            detail = error_body.decode("utf-8", errors="replace").strip()\n',
+              '        except HTTPError as exc:\n            with exc:\n                error_body = exc.read()\n            detail = error_body.decode("utf-8", errors="replace").strip()\n',
+              1,
+          )
+
+          # Vendor management XML comes from network devices; parse it defensively.
+          for path in ('sllurp/intermec_management.py', 'sllurp/zebra_management.py'):
+              replace(
+                  path,
+                  'from xml.etree import ElementTree as ET',
+                  'from defusedxml import ElementTree as ET\nfrom defusedxml.common import DefusedXmlException',
+                  1,
+              )
+              p = Path(path)
+              text = p.read_text().replace(
+                  'except ET.ParseError as exc:',
+                  'except (ET.ParseError, DefusedXmlException) as exc:',
+              )
+              p.write_text(text)
+
+          # Three C1G2 parameter field lists accidentally concatenated two field names.
+          replace(
+              'sllurp/llrp_proto.py',
+              '        "AccessPassword" "MB",',
+              '        "AccessPassword",\n        "MB",',
+              3,
+          )
+          replace(
+              'sllurp/llrp_proto.py',
+              'Param_struct["C1G2BlockWrite"] = {\n    "type": 347,\n    "fields": [\n        "OpSpecID",\n        "AccessPassword",\n        "MB",\n        "WordPtr",\n        "WriteDataWordCount",\n        "WriteData",\n    ],\n    "encode": encode_C1G2Write,\n}',
+              'Param_struct["C1G2BlockWrite"] = {\n    "type": 347,\n    "fields": [\n        "OpSpecID",\n        "AccessPassword",\n        "MB",\n        "WordPtr",\n        "WriteDataWordCount",\n        "WriteData",\n    ],\n    "encode": encode_C1G2BlockWrite,\n}',
+              1,
+          )
+          replace(
+              'sllurp/llrp_proto.py',
+              '        tag_filter_mask=[],',
+              '        tag_filter_mask=None,',
+              1,
+          )
+          replace(
+              'sllurp/llrp_proto.py',
+              '        if frequencies is None:\n            frequencies = {}\n',
+              '        if frequencies is None:\n            frequencies = {}\n        if tag_filter_mask is None:\n            tag_filter_mask = []\n',
+              1,
+          )
+          replace(
+              'sllurp/llrp_proto.py',
+              '    data_block_list = []\n\n    for key, is_multiple in param_info["auto_fields"]:',
+              '    for key, is_multiple in param_info["auto_fields"]:',
+              1,
+          )
+
+          # Runtime invariants must survive Python -O; never use assert for them.
+          replace(
+              'sllurp/llrp.py',
+              '    def setState(self, newstate, onCompletion=None):\n        assert newstate is not None\n',
+              '    def setState(self, newstate, onCompletion=None):\n        if newstate is None:\n            raise LLRPError("reader state cannot be None")\n',
+              1,
+          )
+          replace(
+              'sllurp/llrp.py',
+              '        llrp_msg = LLRPMessage(msgdict=msg_dict)\n        assert llrp_msg.msgbytes, "LLRPMessage is empty"\n        return llrp_msg.msgbytes, sent_ids\n',
+              '        llrp_msg = LLRPMessage(msgdict=msg_dict)\n        if not llrp_msg.msgbytes:\n            raise LLRPError("LLRPMessage is empty")\n        return llrp_msg.msgbytes, sent_ids\n',
+              1,
+          )
+
+          # Bare except catches KeyboardInterrupt/SystemExit. Restrict all remaining
+          # legacy bare handlers to normal exceptions.
+          for root in ('sllurp', 'examples'):
+              for p in Path(root).rglob('*.py'):
+                  text = p.read_text()
+                  text = text.replace('except:\n', 'except Exception:\n')
+                  p.write_text(text)
+
+          # Do not silently discard cleanup failures; keep them at debug level.
+          replace(
+              'sllurp/llrp.py',
+              '                except Exception:\n                    pass\n            self._socket = None\n            raise\n',
+              '                except Exception:\n                    logger.debug("socket cleanup failed", exc_info=True)\n            self._socket = None\n            raise\n',
+              1,
+          )
+          replace(
+              'sllurp/llrp.py',
+              '            except Exception:\n                pass\n            self._socket.close()\n',
+              '            except Exception:\n                logger.debug("socket shutdown failed", exc_info=True)\n            self._socket.close()\n',
+              1,
+          )
+          replace(
+              'sllurp/llrp.py',
+              '            except Exception:\n                pass\n\n        # Be patient...',
+              '            except Exception:\n                logger.debug("reader disconnect failed", exc_info=True)\n\n        # Be patient...',
+              1,
+          )
+          replace(
+              'sllurp/llrp.py',
+              '            except Exception:\n                pass\n\n        if force:',
+              '            except Exception:\n                logger.debug("reader join failed", exc_info=True)\n\n        if force:',
+              1,
+          )
+          replace(
+              'sllurp/llrp.py',
+              '                except Exception:\n                    pass\n\n    def on_lost_connection',
+              '                except Exception:\n                    logger.debug("forced reader disconnect failed", exc_info=True)\n\n    def on_lost_connection',
+              1,
+          )
+          replace(
+              'sllurp/secure.py',
+              '                except Exception:\n                    pass\n            raise\n',
+              '                except Exception:\n                    logger.debug("secure socket cleanup failed", exc_info=True)\n            raise\n',
+              1,
+          )
+          replace(
+              'sllurp/log.py',
+              '        except Exception:\n            pass\n\n    root.addHandler(stderr_handler)',
+              '        except Exception:\n            root.debug("failed to close previous logging handler", exc_info=True)\n\n    root.addHandler(stderr_handler)',
+              1,
+          )
+
+          # Decode command: expose a reusable main() so tests need not execute an
+          # already-imported module through runpy (which emits RuntimeWarning).
+          Path('sllurp/decode.py').write_text('''import argparse\nimport binascii\nimport logging\n\nfrom sllurp.llrp import LLRPMessage\n\nlogger = logging.getLogger("sllurp")\n\nargs = None\n\n\ndef parse_args(argv=None):\n    global args\n    parser = argparse.ArgumentParser(description="Decode an LLRP message")\n    parser.add_argument("msg", help="message in hexadecimal encoding")\n    parser.add_argument("-d", "--debug", action="store_true")\n    args = parser.parse_args(argv)\n    return args\n\n\ndef init_logging():\n    log_level = logging.DEBUG if args.debug else logging.INFO\n    log_format = "%(asctime)s %(name)s: %(levelname)s: %(message)s"\n    formatter = logging.Formatter(log_format)\n    stderr = logging.StreamHandler()\n    stderr.setFormatter(formatter)\n\n    root = logging.getLogger()\n    root.setLevel(log_level)\n    root.handlers = [stderr]\n\n\ndef main(argv=None):\n    parsed = parse_args(argv)\n    init_logging()\n    message_bytes = binascii.unhexlify(parsed.msg)\n    message = LLRPMessage(msgbytes=message_bytes)\n    print("Decoded message:\\n==========")\n    print(message)\n\n\nif __name__ == "__main__":\n    main()\n''')
+          replace(
+              'tests/test_dynamic_commands.py',
+              '    runpy.run_module("sllurp.decode", run_name="__main__")\n',
+              '    decode_module.main()\n',
+              1,
+          )
+
+          # Tests should assert the actual contract, not any Exception subclass.
+          replace(
+              'tests/test_reader_extensions.py',
+              'from sllurp.llrp_proto import LLRPROSpec, Param_struct, encode_param',
+              'from sllurp.llrp_proto import LLRPError, LLRPROSpec, Param_struct, encode_param',
+              1,
+          )
+          replace(
+              'tests/test_reader_extensions.py',
+              '    with pytest.raises(Exception):\n        LLRPReaderConfig({"zebra_tag_content_selector": selector})',
+              '    with pytest.raises(LLRPError):\n        LLRPReaderConfig({"zebra_tag_content_selector": selector})',
+              1,
+          )
+          replace(
+              'tests/test_rf_telemetry.py',
+              'from sllurp.llrp_proto import LLRPROSpec, Param_struct, encode_param',
+              'from sllurp.llrp_proto import LLRPError, LLRPROSpec, Param_struct, encode_param',
+              1,
+          )
+          replace(
+              'tests/test_rf_telemetry.py',
+              '    with pytest.raises(Exception):\n        LLRPReaderConfig({"rf_telemetry_mode": value})',
+              '    with pytest.raises(LLRPError):\n        LLRPReaderConfig({"rf_telemetry_mode": value})',
+              1,
+          )
+
+          # Add focused regression tests for defects found by the audit.
+          Path('tests/test_audit_regressions.py').write_text('''import inspect\n\nimport pytest\n\nfrom sllurp.llrp import LLRPClient, LLRPReaderState\nfrom sllurp.llrp_proto import LLRPError, LLRPROSpec, Param_struct\n\n\ndef test_c1g2_access_parameter_field_metadata_is_not_concatenated():\n    for name in ("C1G2Read", "C1G2Write", "C1G2BlockWrite"):\n        fields = Param_struct[name]["fields"]\n        assert "AccessPassword" in fields\n        assert "MB" in fields\n        assert "AccessPasswordMB" not in fields\n\n\ndef test_block_write_uses_its_own_encoder():\n    assert Param_struct["C1G2BlockWrite"]["encode"].__name__ == "encode_C1G2BlockWrite"\n\n\ndef test_rospec_tag_filter_default_is_not_mutable():\n    assert inspect.signature(LLRPROSpec).parameters["tag_filter_mask"].default is None\n\n\ndef test_reader_state_none_is_rejected_without_assert_dependency():\n    client = object.__new__(LLRPClient)\n    with pytest.raises(LLRPError, match="state cannot be None"):\n        client.setState(None)\n''')
+
+          # BUGS.md described the transactional engine as future work even though
+          # apply_config() is now implemented and tested.
+          p = Path('BUGS.md')
+          text = p.read_text()
+          text = text.replace(
+              'The remaining *feature* work for a fully transactional live configuration engine is tracked in `TODO.md`; it is no longer treated as an unfenced correctness bug because generic `update_config()` now refuses unsafe live replacement.',
+              'The transactional live configuration engine is now implemented through `apply_config()`. The legacy generic `update_config()` remains intentionally disconnected-only, while live changes use the policy-driven transition/rollback path documented in `TODO.md`.'
+          )
+          text = text.replace(
+              'The old API could silently claim a configuration that was never applied. The new API cannot enter that ambiguous state through generic replacement. A future transactional live-update engine is an enhancement, tracked in `TODO.md`.',
+              'The old API could silently claim a configuration that was never applied. Generic replacement can no longer enter that ambiguous state, and live changes are handled separately by the transactional `apply_config()` engine.'
+          )
+          start = text.index('## 4. Generic live configuration had no rollback semantics')
+          end = text.index('## 5. `parseReaderConfig()` provided no normalized applied state')
+          replacement = '''## 4. Generic live configuration had no rollback semantics — FIXED\n\n**Area:** `LLRPClient.apply_config()` and `sllurp/llrp_runtime.py`\n\nThe live path now computes a structured diff, classifies each changed field, applies the required ordered transition, and commits the new desired state only after the reader acknowledges the transition. Failures restore the previous known-good configuration; if rollback cannot restore a known state, the protocol is forced to the disconnected safe state.\n\nUnknown/new fields default to reconnect-required rather than being assumed safe. Same-response-type request pipelining remains intentionally disabled until hardware evidence shows predictable firmware behavior.\n\nRegression coverage includes successful ROSpec changes, reader-config failures, restart failures, rollback success, rollback failure to disconnected state, request timeouts, stale/wrong-ID responses, and no-op/client-only changes.\n\n**Hardware:** not required for the software correctness guarantees. Real readers remain necessary to validate vendor/firmware interoperability for each live transition.\n\n---\n\n'''
+          text = text[:start] + replacement + text[end:]
+          p.write_text(text)
+
+          # Promote warnings/resources and high-signal static checks into CI.
+          p = Path('.github/workflows/test.yml')
+          text = p.read_text().replace('        run: pytest\n', '        run: pytest -W error\n', 1)
+          if '  quality:' not in text:
+              text += '''\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.14'\n      - name: Install quality tools\n        run: |\n          python -m pip install -e '.[test]'\n          python -m pip install ruff bandit\n      - name: Compile all Python\n        run: python -m compileall -q sllurp tests examples\n      - name: High-signal static checks\n        run: ruff check sllurp tests examples --select E9,F63,F7,F82,F401,F841,E722,B006,ISC004,B017\n      - name: Security checks\n        run: bandit -r sllurp -q\n'''
+          p.write_text(text)
+
+          # Remove temporary audit workflows from the final branch diff.
+          for path in ('.github/workflows/full-repo-audit.yml', '.github/workflows/audit-fix.yml'):
+              Path(path).unlink(missing_ok=True)
+          PY
+
+      - name: Safe dead-import cleanup
+        run: |
+          python -m pip install ruff
+          ruff check sllurp tests examples --select F401,F841,I001 --fix
+      - name: Install project and audit tools
+        run: |
+          python -m pip install -e '.[test]'
+          python -m pip install bandit build twine
+      - name: Full validation
+        run: |
+          python -m compileall -q sllurp tests examples
+          pytest -q -W error
+          ruff check sllurp tests examples --select E9,F63,F7,F82,F401,F841,E722,B006,ISC004,B017
+          bandit -r sllurp -q
+          python -m build
+          twine check dist/*
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Fix repository audit findings'
+          git push origin HEAD:audit/full-repo-sanity-2026-09-11
