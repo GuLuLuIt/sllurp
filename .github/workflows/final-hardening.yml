@@ -48,9 +48,8 @@ jobs:
           # A session reset is internal bookkeeping; don't emit a duplicate state callback.
           replace(
               "sllurp/llrp.py",
-              "            self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)\n",
-              "            self.llrp.state = LLRPReaderState.STATE_DISCONNECTED\n",
-              count=1,
+              '''        if self.llrp:\n            self.llrp._deferreds.clear()\n            self.llrp.rospec = None\n            self.llrp.disconnecting = False\n            self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)\n''',
+              '''        if self.llrp:\n            self.llrp._deferreds.clear()\n            self.llrp.rospec = None\n            self.llrp.disconnecting = False\n            self.llrp.state = LLRPReaderState.STATE_DISCONNECTED\n''',
           )
 
           # Avoid the Python 3.14 utcnow deprecation in a long-running logger.
