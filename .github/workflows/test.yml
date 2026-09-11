@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pip3 install -e .[test]
       - name: Run branch coverage
-        run: pytest --cov=sllurp --cov-branch --cov-report=term-missing --cov-report=xml
+        run: pytest --cov=sllurp --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=60
 
   package-smoke:
     runs-on: ubuntu-latest
