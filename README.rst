@@ -85,8 +85,36 @@ name, use ``--tls-server-hostname`` to set the TLS SNI/certificate hostname.
 ``--tls-no-verify`` is available for controlled test environments, but disables
 certificate validation and should not be used as the normal production setup.
 
-The FXR90 support here targets standard LLRP plus Zebra's secure transport.  It
-does not attempt to emulate Zebra's separate IoT Connector protocol.
+The FXR90 support includes standard LLRP plus Zebra's secure transport.
+Vendor-specific HTTP/HTTPS management is available separately through
+``sllurp.reader_adapters``; the reader firmware determines which REST routes are
+available.
+
+Reader management
+-----------------
+
+Sllurp provides capability-based HTTP/HTTPS management adapters in addition to
+LLRP inventory control.  Zebra fixed readers use ``ZebraReaderManager`` and
+Impinj R700/R720 readers use ``ImpinjR700ReaderManager``.  Legacy readers that
+do not publish the same REST contract are explicitly marked LLRP-only instead
+of using guessed web endpoints.
+
+.. code:: python
+
+    from sllurp.reader_adapters import create_reader_manager
+
+    manager = create_reader_manager(
+        "zebra",
+        "FX9600",
+        "https://reader.example",
+        username="admin",
+        password="reader-password",
+    )
+    print(manager.get_status())
+    manager.set_mode({"mode": "INVENTORY"})
+
+See ``docs/reader-management.rst`` for the capability matrix, authentication,
+TLS options, and vendor-specific operations.
 
 Reader API
 ----------

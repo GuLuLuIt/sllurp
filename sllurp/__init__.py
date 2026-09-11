@@ -9,6 +9,7 @@ __all__ = (
     "llrp_proto",
     "secure",
     "reader_management",
+    "reader_adapters",
     "dedup",
     "util",
     "log",
