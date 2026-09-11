@@ -141,7 +141,8 @@ def test_wsdl_discovery_auth_host_safety_and_soap11(server):
     assert wsdl_headers.get("Authorization") == expected
     post = Handler.requests[-1]
     assert post[1] == "/dcws"
-    assert post[2].get("SOAPAction") == '"urn:SetConfig"'
+    post_headers = {key.lower(): value for key, value in post[2].items()}
+    assert post_headers.get("soapaction") == '"urn:SetConfig"'
     xml = ET.fromstring(post[3])
     assert any(local_name(node.tag) == "enabled" and node.text == "true" for node in xml.iter())
     assert [node.text for node in xml.iter() if local_name(node.tag) == "antenna"] == ["1", "2"]
