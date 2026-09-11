@@ -14,6 +14,18 @@ jobs:
           fetch-depth: 0
       - name: Apply audited maintenance patch
         run: python tools/apply_core_hardware_readiness.py
+      - name: Normalize generated test file endings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in (
+              "tests/test_regressions.py",
+              "tests/test_secure.py",
+              "tests/test_zebra_management.py",
+          ):
+              path = Path(name)
+              path.write_text(path.read_text().rstrip() + "\n")
+          PY
       - name: Commit maintenance patch
         run: |
           git config user.name "github-actions[bot]"
