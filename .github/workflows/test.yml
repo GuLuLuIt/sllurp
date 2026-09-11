@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: pip3 install -e .[test]
       - name: Run tests
-        run: pytest
+        run: pytest -W error
 
   coverage:
     runs-on: ubuntu-latest
@@ -55,3 +55,21 @@ jobs:
         run: |
           /tmp/sllurp-wheel-test/bin/python -c "import sllurp; import sllurp.epc; import sllurp.verb.inventory; import sllurp.cli"
           /tmp/sllurp-wheel-test/bin/sllurp --help >/dev/null
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install quality tools
+        run: |
+          python -m pip install -e '.[test]'
+          python -m pip install ruff bandit
+      - name: Compile all Python
+        run: python -m compileall -q sllurp tests examples
+      - name: High-signal static checks
+        run: ruff check sllurp tests examples --select E9,F63,F7,F82,F401,F841,E722,B006,ISC004,B017
+      - name: Security checks
+        run: bandit -r sllurp -q
