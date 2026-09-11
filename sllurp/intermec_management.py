@@ -15,7 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 from urllib.parse import urlparse
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405 -- construction only
+
+from defusedxml.common import DefusedXmlException
+from defusedxml.ElementTree import fromstring as safe_fromstring
 
 from .reader_management import HTTPReaderManager, ReaderManagementError
 
@@ -144,8 +147,8 @@ class IntermecDCWSManager:
         """Reload and parse the reader's Device Configuration WSDL."""
         response = self.transport.request("GET", self.wsdl_path)
         try:
-            root = ET.fromstring(response.body)
-        except ET.ParseError as exc:
+            root = safe_fromstring(response.body)
+        except (ET.ParseError, DefusedXmlException) as exc:
             raise ReaderManagementError(
                 "reader returned invalid Device Configuration WSDL",
                 body=response.body,
@@ -316,8 +319,8 @@ class IntermecDCWSManager:
             headers=headers,
         )
         try:
-            root = ET.fromstring(response.body)
-        except ET.ParseError as exc:
+            root = safe_fromstring(response.body)
+        except (ET.ParseError, DefusedXmlException) as exc:
             raise ReaderManagementError(
                 f"reader returned invalid SOAP XML for {name}",
                 body=response.body,

@@ -1,16 +1,17 @@
 """Command-line wrapper for sllurp commands."""
 
 from collections import namedtuple
-import logging
+
 import click
+
 from . import __version__
 from . import log as loggie
 from .llrp import LLRP_DEFAULT_PORT
 from .secure import LLRP_SECURE_PORT
-from .verb import reset as _reset
+from .verb import access as _access
 from .verb import inventory as _inventory
 from .verb import log as _log
-from .verb import access as _access
+from .verb import reset as _reset
 
 logger = loggie.get_logger(__name__)
 

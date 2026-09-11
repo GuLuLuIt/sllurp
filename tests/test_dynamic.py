@@ -1,24 +1,29 @@
 import struct
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from sllurp.llrp import C1G2LockPayload, LLRPReaderClient, LLRPReaderConfig
 from sllurp.llrp_decoder import (
-    TYPE_CUSTOM,
     TVE_PARAM_FORMATS,
+    TYPE_CUSTOM,
     msg_header_custom_size,
     msg_header_decode,
     msg_header_encode,
     msg_header_size,
-    param_header_decode,
     par_vendor_subtype_size,
+    param_header_decode,
     tlv_par_header_size,
     tve_param_header_decode,
 )
-from sllurp.llrp_proto import Message_struct, Param_struct, decode_param, hex_to_bit_array
+from sllurp.llrp_proto import (
+    Message_struct,
+    Param_struct,
+    decode_param,
+    hex_to_bit_array,
+)
 from sllurp.util import BIT, BITMASK, find_closest, natural_keys, reverse_dict
-
 
 PROPERTY_SETTINGS = settings(max_examples=200, deadline=None, derandomize=True)
 

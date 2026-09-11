@@ -16,7 +16,7 @@ Core rule:
 | 4 | Generic live config had no transaction/rollback semantics | High | **Fixed by prohibiting unsafe generic live replacement** | No |
 | 5 | `parseReaderConfig()` provided no normalized reader-side state | Medium | **Fixed** | No |
 
-The remaining *feature* work for a fully transactional live configuration engine is tracked in `TODO.md`; it is no longer treated as an unfenced correctness bug because generic `update_config()` now refuses unsafe live replacement.
+The transactional live configuration engine is now implemented through `apply_config()`. The legacy generic `update_config()` remains intentionally disconnected-only, while live changes use the policy-driven transition/rollback path documented in `TODO.md`.
 
 ---
 
@@ -136,7 +136,7 @@ The call raises `ReaderConfigurationError` before mutation if a socket/thread/pr
 
 ### Why this counts as a bug fix
 
-The old API could silently claim a configuration that was never applied. The new API cannot enter that ambiguous state through generic replacement. A future transactional live-update engine is an enhancement, tracked in `TODO.md`.
+The old API could silently claim a configuration that was never applied. Generic replacement can no longer enter that ambiguous state, and live changes are handled separately by the transactional `apply_config()` engine.
 
 ### Regression coverage
 
@@ -205,72 +205,17 @@ Defined semantics:
 
 ---
 
-## 4. Generic live configuration had no rollback semantics — FIXED AS A SAFETY BUG; TRANSACTIONAL LIVE UPDATE REMAINS TODO
+## 4. Generic live configuration had no rollback semantics — FIXED
 
-### Previous unsafe shape
+**Area:** `LLRPClient.apply_config()` and `sllurp/llrp_runtime.py`
 
-```text
-old working state
-      |
- stop inventory     OK
-      |
- delete ROSpec      OK
-      |
- add new ROSpec     FAIL
-      |
-      X
+The live path now computes a structured diff, classifies each changed field, applies the required ordered transition, and commits the new desired state only after the reader acknowledges the transition. Failures restore the previous known-good configuration; if rollback cannot restore a known state, the protocol is forced to the disconnected safe state.
 
-Possible result:
-  self.config = NEW
-  reader state = neither clearly OLD nor NEW
-```
+Unknown/new fields default to reconnect-required rather than being assumed safe. Same-response-type request pipelining remains intentionally disabled until hardware evidence shows predictable firmware behavior.
 
-There was no general transaction object capable of rolling back every multi-step live configuration change.
+Regression coverage includes successful ROSpec changes, reader-config failures, restart failures, rollback success, rollback failure to disconnected state, request timeouts, stale/wrong-ID responses, and no-op/client-only changes.
 
-### Current mitigation
-
-The generic `update_config()` path no longer attempts such a transition while connected. It rejects the operation before mutating state:
-
-```text
-connected + generic update
-          |
-          v
-+---------------------------+
-| reject before mutation    |
-+---------------------------+
-          |
-          v
-known old state remains valid
-```
-
-This removes the correctness bug without pretending a partial transaction implementation is safe.
-
-### Remaining enhancement
-
-A future live configuration engine should explicitly model:
-
-```text
-capture old applied state
-          |
-          v
-validate + diff
-          |
-          v
-apply ordered transition
-      /         \
- success       failure
-   |             |
- commit       rollback
-                 |
-          rollback fails
-                 |
-                 v
-          clean disconnect
-```
-
-That work is in `TODO.md` and requires a larger failure-injection/state-transition design.
-
-**Hardware:** not required for the current safety fix; recommended for future live-update interoperability testing.
+**Hardware:** not required for the software correctness guarantees. Real readers remain necessary to validate vendor/firmware interoperability for each live transition.
 
 ---
 

@@ -1,8 +1,8 @@
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from sllurp.llrp_proto import LLRPError, LLRPROSpec, llrp_data2xml
-
 
 PROPERTY_SETTINGS = settings(max_examples=150, deadline=None, derandomize=True)
 

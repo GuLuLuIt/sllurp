@@ -63,7 +63,7 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
         try:
             handler.close()
         except Exception:
-            pass
+            root.debug("failed to close previous logging handler", exc_info=True)
 
     root.addHandler(stderr_handler)
     root.addHandler(stdout_handler)

@@ -7,18 +7,18 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from queue import Queue
-from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.websockets import WebSocket, WebSocketDisconnect
+
 from sllurp.llrp import (
     LLRP_DEFAULT_PORT,
     LLRPReaderClient,
     LLRPReaderConfig,
     LLRPReaderState,
 )
-from starlette.websockets import WebSocket, WebSocketDisconnect
 
 
 # Pydantic model for RFID tag data

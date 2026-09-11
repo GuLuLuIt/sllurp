@@ -4,13 +4,12 @@ Logs tag sightings at one or more readers to a CSV file.
 """
 
 import csv
-import logging
 import time
 from threading import RLock
 
-from sllurp.util import format_host_port, split_host_port
-from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient
+from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig
 from sllurp.log import get_logger
+from sllurp.util import format_host_port, split_host_port
 
 numTags = 0
 logger = get_logger(__name__)

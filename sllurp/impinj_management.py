@@ -19,7 +19,6 @@ from urllib.parse import quote, urlparse
 
 from .reader_management import HTTPReaderManager, ReaderHTTPResponse
 
-
 IMPINJ_REST_MODELS = frozenset({"R700", "R720"})
 
 

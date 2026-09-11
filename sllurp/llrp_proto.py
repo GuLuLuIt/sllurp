@@ -23,24 +23,21 @@
 
 import logging
 import struct
-from collections import defaultdict
 from binascii import hexlify, unhexlify
+from collections import defaultdict
 
-from .util import BIT, BITMASK, reverse_dict
 from .llrp_decoder import (
-    msg_header_encode,
-    msg_header_decode,
-    param_header_decode,
-    par_vendor_subtype_size,
-    par_vendor_subtype_unpack,
     TVE_PARAM_FORMATS,
-    TVE_PARAM_TYPE_MAX,
     TYPE_CUSTOM,
     VENDOR_ID_IMPINJ,
     VENDOR_ID_MOTOROLA,
+    msg_header_decode,
+    msg_header_encode,
+    param_header_decode,
 )
 from .llrp_errors import LLRPError
 from .log import get_logger, is_general_debug_enabled
+from .util import BIT, reverse_dict
 
 #
 # Define exported symbols
@@ -621,8 +618,6 @@ def encode_all_parameters(par_dict, param_info=None, data=None, par_name=None):
         data_list = [data]
     if param_info is None:
         param_info = Param_struct[par_name]
-
-    data_block_list = []
 
     for key, is_multiple in param_info["auto_fields"]:
         if key not in par_dict:
@@ -1724,7 +1719,8 @@ Param_struct["C1G2Read"] = {
     "type": 341,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WordCount",
     ],
@@ -1752,7 +1748,8 @@ Param_struct["C1G2Write"] = {
     "type": 342,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WriteDataWordCount",
         "WriteData",
@@ -1809,12 +1806,13 @@ Param_struct["C1G2BlockWrite"] = {
     "type": 347,
     "fields": [
         "OpSpecID",
-        "AccessPassword" "MB",
+        "AccessPassword",
+        "MB",
         "WordPtr",
         "WriteDataWordCount",
         "WriteData",
     ],
-    "encode": encode_C1G2Write,
+    "encode": encode_C1G2BlockWrite,
 }
 
 
@@ -4690,7 +4688,6 @@ def llrp_data2xml(msg):
             for e in sub:
                 tabs1 = tabs + "\t"
                 sub_name = e.get("Name", name)
-                decode_error_reason = e.get("DecodeError")
                 ret += tabs + "<%s>\n" % DECODE_ERROR_PARNAME
                 if sub_name:
                     ret += tabs1 + "<Name>%s</Name>\n" % sub_name
@@ -4755,7 +4752,7 @@ class LLRPROSpec(dict):
         tari=None,
         session=2,
         tag_population=4,
-        tag_filter_mask=[],
+        tag_filter_mask=None,
         impinj_search_mode=None,
         impinj_tag_content_selector=None,
         zebra_tag_content_selector=None,
@@ -4785,6 +4782,8 @@ class LLRPROSpec(dict):
 
         if frequencies is None:
             frequencies = {}
+        if tag_filter_mask is None:
+            tag_filter_mask = []
 
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None

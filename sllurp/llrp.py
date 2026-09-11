@@ -1,45 +1,45 @@
 import math
 import select
 import ssl
-
 from binascii import hexlify
 from collections import defaultdict
 from socket import (
     AF_INET,
     AF_INET6,
-    SOCK_STREAM,
+    IPPROTO_TCP,
     SHUT_RDWR,
-    SOL_SOCKET,
     SO_KEEPALIVE,
     SO_RCVBUF,
-    IPPROTO_TCP,
+    SOCK_STREAM,
+    SOL_SOCKET,
     TCP_NODELAY,
     socket,
+)
+from socket import (
     error as SocketError,
 )
-from threading import Thread, Event, Timer, RLock
+from threading import Event, RLock, Thread, Timer
 from weakref import WeakSet
 
-from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_IMPINJ, VENDOR_ID_MOTOROLA
+from .dedup import TagReportDeduplicator
+from .llrp_decoder import TYPE_CUSTOM, VENDOR_ID_MOTOROLA
+from .llrp_errors import ReaderConfigurationError
 from .llrp_proto import (
-    LLRPROSpec,
-    LLRPError,
-    Message_struct,
-    msg_header_len,
-    msg_header_pack,
-    msg_header_unpack,
-    msg_header_encode,
-    msg_header_decode,
-    get_message_name_from_type,
-    Capability_Name2Type,
-    AirProtocol,
-    llrp_data2xml,
-    LLRPMessageDict,
     DEFAULT_CHANNEL_INDEX,
     DEFAULT_HOPTABLE_INDEX,
+    AirProtocol,
+    Capability_Name2Type,
+    LLRPError,
+    LLRPMessageDict,
+    LLRPROSpec,
+    Message_struct,
+    get_message_name_from_type,
+    llrp_data2xml,
+    msg_header_decode,
+    msg_header_encode,
+    msg_header_len,
+    msg_header_unpack,
 )
-from .llrp_errors import ReaderConfigurationError
-from .dedup import TagReportDeduplicator
 from .llrp_runtime import (
     ConfigTransition,
     PendingRequestRegistry,
@@ -47,7 +47,6 @@ from .llrp_runtime import (
     snapshot_config,
 )
 from .log import get_logger, is_general_debug_enabled
-from .util import natural_keys, find_closest
 
 LLRP_DEFAULT_PORT = 5084
 LLRP_SECURE_PORT = 5085
@@ -638,7 +637,8 @@ class LLRPClient:
         )
 
     def setState(self, newstate, onCompletion=None):
-        assert newstate is not None
+        if newstate is None:
+            raise LLRPError("reader state cannot be None")
         if newstate == LLRPReaderState.STATE_DISCONNECTED:
             self._cancel_pause_resume_timer()
             self.applied_config_snapshot = None
@@ -1953,7 +1953,8 @@ class LLRPClient:
                 self.last_msg_id = message_id
             sent_ids.append((name, message_id))
         llrp_msg = LLRPMessage(msgdict=msg_dict)
-        assert llrp_msg.msgbytes, "LLRPMessage is empty"
+        if not llrp_msg.msgbytes:
+            raise LLRPError("LLRPMessage is empty")
         return llrp_msg.msgbytes, sent_ids
 
     def _send_request(self, msg_dict, response_name, onCompletion=None, new_state=None):
@@ -2305,8 +2306,6 @@ class LLRPReaderConfig:
 
 class LLRPReaderClient:
     def __init__(self, host, port=None, config=None, timeout=5.0):
-        global all_reader_refs
-
         self._port_explicit = port is not None
         if port is None:
             port = (
@@ -2567,13 +2566,13 @@ class LLRPReaderClient:
                 )
             else:
                 self._socket = raw_socket
-        except:
+        except Exception:
             sock = self._socket or raw_socket
             if sock is not None:
                 try:
                     sock.close()
                 except Exception:
-                    pass
+                    logger.debug("socket cleanup failed", exc_info=True)
             self._socket = None
             raise
 
@@ -2695,8 +2694,8 @@ class LLRPReaderClient:
         if self._socket:
             try:
                 self._socket.shutdown(SHUT_RDWR)
-            except:
-                pass
+            except Exception:
+                logger.debug("socket shutdown failed", exc_info=True)
             self._socket.close()
             self._socket = None
 
@@ -2715,23 +2714,23 @@ class LLRPReaderClient:
                     continue
                 if not reader.disconnect_requested.is_set():
                     reader.disconnect()
-            except:
-                pass
+            except Exception:
+                logger.debug("reader disconnect failed", exc_info=True)
 
         # Be patient...
         for reader in all_reader_refs:
             try:
                 reader.join(timeout_per_reader)
-            except:
-                pass
+            except Exception:
+                logger.debug("reader join failed", exc_info=True)
 
         if force:
             # Go nuclear to reader instances that would still be connected.
             for reader in all_reader_refs:
                 try:
                     reader.hard_disconnect()
-                except:
-                    pass
+                except Exception:
+                    logger.debug("forced reader disconnect failed", exc_info=True)
 
     def on_lost_connection(self):
         """On lost connection, attempt retries if reconnect enabled
@@ -2751,7 +2750,7 @@ class LLRPReaderClient:
 
         try:
             self.hard_disconnect()
-        except:
+        except Exception:
             logger.exception("hard_disconnect error in lost connection")
 
         self._reset_protocol_session()
@@ -2977,7 +2976,7 @@ class LLRPReaderClient:
         for fn in callbacks:
             try:
                 fn(self)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user on_disconnected callback." "Continuing anyway..."
                 )
@@ -2993,7 +2992,7 @@ class LLRPReaderClient:
         for fn in callbacks:
             try:
                 fn(self, newstate)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during state change callback execution"
                     ". Continuing anyway..."
@@ -3009,7 +3008,7 @@ class LLRPReaderClient:
         for fn in callbacks:
             try:
                 fn(self, lmsg)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during message callback execution. " "Continuing anyway..."
                 )
@@ -3029,7 +3028,7 @@ class LLRPReaderClient:
         for fn in callbacks:
             try:
                 fn(self, tags_report_dict)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user on_llrp_tag_report "
                     "callback. Continuing anyway..."
@@ -3044,7 +3043,7 @@ class LLRPReaderClient:
         for fn in callbacks:
             try:
                 fn(self, event_data_dict)
-            except:
+            except Exception:
                 logger.exception(
                     "Error during user _on_llrp_event_notification"
                     "callback. Continuing anyway..."

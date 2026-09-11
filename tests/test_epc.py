@@ -1,7 +1,8 @@
 """Tests for EPC utility functions."""
 
 import unittest
-from sllurp.epc import sgtin_96, gtin
+
+from sllurp.epc import gtin, sgtin_96
 
 
 class SGTIN_96_Tests(unittest.TestCase):

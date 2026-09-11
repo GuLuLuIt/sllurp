@@ -29,6 +29,7 @@ classifiers = [
 ]
 dependencies = [
     "click",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

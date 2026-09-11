@@ -374,7 +374,7 @@ def test_decode_script_decodes_header_only_message(monkeypatch, capsys):
     frame = msg_header_encode(Message_struct["KEEPALIVE"]["type"], 1, 0, 77)
     monkeypatch.setattr(sys, "argv", ["sllurp.decode", frame.hex()])
 
-    runpy.run_module("sllurp.decode", run_name="__main__")
+    decode_module.main()
 
     output = capsys.readouterr().out
     assert "Decoded message" in output

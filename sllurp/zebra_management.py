@@ -16,7 +16,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from typing import Any
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405 -- construction only
+
+from defusedxml.common import DefusedXmlException
+from defusedxml.ElementTree import fromstring as safe_fromstring
 
 from .reader_management import (
     HTTPReaderManager,
@@ -214,8 +217,8 @@ class ZebraRMManager:
             },
         )
         try:
-            root = ET.fromstring(response.body)
-        except ET.ParseError as exc:
+            root = safe_fromstring(response.body)
+        except (ET.ParseError, DefusedXmlException) as exc:
             raise ReaderManagementError(
                 "reader returned invalid RM XML", body=response.body
             ) from exc

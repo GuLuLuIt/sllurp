@@ -1,15 +1,12 @@
-import unittest
-import random
 import binascii
 import logging
-import struct
-import sys
+import random
+import unittest
 
-import pytest
 import sllurp
 import sllurp.llrp
-import sllurp.llrp_proto
 import sllurp.llrp_errors
+import sllurp.llrp_proto
 
 logLevel = logging.WARNING
 logging.basicConfig(
@@ -83,7 +80,6 @@ class TestROSpec(unittest.TestCase):
         fx = FauxClient()
         masks = ["0123", "4567"]
         rospec = sllurp.llrp.LLRPROSpec(fx.reader_mode, 1, tag_filter_mask=masks)
-        rospec_str = repr(rospec)
         filters = rospec["AISpec"][0]["InventoryParameterSpec"][0][
             "AntennaConfiguration"
         ][0]["C1G2InventoryCommand"][0]["C1G2Filter"]
