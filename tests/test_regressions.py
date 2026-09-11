@@ -49,6 +49,7 @@ def test_multiple_fixed_channels_enable_impinj_extensions():
                 "ChannelList": [1, 2],
                 "Automatic": False,
             },
+            "impinj_fixed_frequency": True,
         }
     )
     writes = []

@@ -168,8 +168,13 @@ def cli(debug, logfile):
     "--frequencies",
     type=str,
     default="1",
-    help="comma-separated list of frequency indexes to use (0=all;"
-    " default 1). Region and reader dependent",
+    help="comma-separated list of frequency indexes to use (0=all; default 1)",
+)
+@click.option(
+    "--impinj-fixed-frequency",
+    is_flag=True,
+    default=False,
+    help="Allow -f 0 or multiple channels using Impinj's fixed-frequency extension.",
 )
 @click.option(
     "--hoptable-id",
@@ -200,6 +205,7 @@ def inventory(
     impinj_search_mode,
     impinj_reports,
     frequencies,
+    impinj_fixed_frequency,
     hoptable_id,
     tls_enabled,
     tls_verify,
@@ -234,6 +240,7 @@ def inventory(
             "impinj_search_mode",
             "impinj_reports",
             "frequencies",
+            "impinj_fixed_frequency",
             "hoptable_id",
             "tls_enabled",
             "tls_verify",
@@ -264,6 +271,7 @@ def inventory(
         impinj_search_mode=impinj_search_mode,
         impinj_reports=impinj_reports,
         frequencies=frequencies,
+        impinj_fixed_frequency=impinj_fixed_frequency,
         hoptable_id=hoptable_id,
         tls_enabled=tls_enabled,
         tls_verify=tls_verify,
@@ -309,8 +317,13 @@ def inventory(
     "--frequencies",
     type=str,
     default="1",
-    help="comma-separated list of frequency indexes to use (0=all;"
-    " default 1). Region and reader dependent",
+    help="comma-separated list of frequency indexes to use (0=all; default 1)",
+)
+@click.option(
+    "--impinj-fixed-frequency",
+    is_flag=True,
+    default=False,
+    help="Allow -f 0 or multiple channels using Impinj's fixed-frequency extension.",
 )
 @click.option(
     "--hoptable-id",
@@ -329,6 +342,7 @@ def log(
     epc,
     reader_timestamp,
     frequencies,
+    impinj_fixed_frequency,
     hoptable_id,
     tls_enabled,
     tls_verify,
@@ -349,6 +363,7 @@ def log(
             "epc",
             "reader_timestamp",
             "frequencies",
+            "impinj_fixed_frequency",
             "hoptable_id",
             "tls_enabled",
             "tls_verify",
@@ -367,6 +382,7 @@ def log(
         epc=epc,
         reader_timestamp=reader_timestamp,
         frequencies=frequencies,
+        impinj_fixed_frequency=impinj_fixed_frequency,
         hoptable_id=hoptable_id,
         tls_enabled=tls_enabled,
         tls_verify=tls_verify,
@@ -447,8 +463,13 @@ def log(
     "--frequencies",
     type=str,
     default="1",
-    help="comma-separated list of frequency indexes to use (0=all;"
-    " default 1). Region and reader dependent",
+    help="comma-separated list of frequency indexes to use (0=all; default 1)",
+)
+@click.option(
+    "--impinj-fixed-frequency",
+    is_flag=True,
+    default=False,
+    help="Allow -f 0 or multiple channels using Impinj's fixed-frequency extension.",
 )
 @click.option(
     "--hoptable-id",
@@ -476,6 +497,7 @@ def access(
     word_ptr,
     access_password,
     frequencies,
+    impinj_fixed_frequency,
     hoptable_id,
     tls_enabled,
     tls_verify,
@@ -505,6 +527,7 @@ def access(
             "word_ptr",
             "access_password",
             "frequencies",
+            "impinj_fixed_frequency",
             "hoptable_id",
             "tls_enabled",
             "tls_verify",
@@ -532,6 +555,7 @@ def access(
         word_ptr=word_ptr,
         access_password=access_password,
         frequencies=frequencies,
+        impinj_fixed_frequency=impinj_fixed_frequency,
         hoptable_id=hoptable_id,
         tls_enabled=tls_enabled,
         tls_verify=tls_verify,
@@ -540,7 +564,10 @@ def access(
         tls_client_key=tls_client_key,
         tls_server_hostname=tls_server_hostname,
     )
-    logger.debug("access args: %s", args)
+    safe_args = args._replace(
+        access_password="***" if args.access_password else 0
+    )
+    logger.debug("access args: %s", safe_args)
     _access.main(args)
 
 

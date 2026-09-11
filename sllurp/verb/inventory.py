@@ -4,7 +4,7 @@ import logging
 import pprint
 import time
 
-from sllurp.util import monotonic
+from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
 from sllurp.log import get_logger
 from sllurp.log import is_general_debug_enabled, set_general_debug
@@ -84,6 +84,7 @@ def main(args):
             "ChannelList": frequency_list,
             "Automatic": False,
         },
+        impinj_fixed_frequency=getattr(args, "impinj_fixed_frequency", False),
         keepalive_interval=args.keepalive_interval,
         tls_enabled=args.tls_enabled,
         tls_verify=args.tls_verify,
@@ -106,12 +107,8 @@ def main(args):
         factory_args["frequencies"]["ChannelList"] = [1]
 
     reader_clients = []
-    for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port)
-        else:
-            port = args.port
+    for host_value in args.host:
+        host, port = split_host_port(host_value, args.port)
 
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)

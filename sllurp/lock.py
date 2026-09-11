@@ -2,7 +2,7 @@ import argparse
 import logging
 import pprint
 
-from sllurp.util import monotonic
+from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
     LLRPReaderConfig,
     LLRPReaderClient,
@@ -217,12 +217,8 @@ def main():
     )
 
     reader_clients = []
-    for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port)
-        else:
-            port = args.port
+    for host_value in args.host:
+        host, port = split_host_port(host_value, args.port)
 
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)

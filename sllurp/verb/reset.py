@@ -2,6 +2,7 @@
 
 import logging
 
+from sllurp.util import split_host_port
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
 from sllurp.log import get_logger
 
@@ -31,12 +32,8 @@ def main(args):
     }
 
     reader_clients = []
-    for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port)
-        else:
-            port = args.port
+    for host_value in args.host:
+        host, port = split_host_port(host_value, args.port)
 
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config, timeout=3)

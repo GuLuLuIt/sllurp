@@ -8,6 +8,7 @@ import select
 import ssl
 from socket import (
     AF_INET,
+    AF_INET6,
     SOCK_STREAM,
     SOL_SOCKET,
     SO_KEEPALIVE,
@@ -156,7 +157,8 @@ class LLRPTLSReaderClient(LLRPReaderClient):
 
         raw_socket = None
         try:
-            raw_socket = socket(AF_INET, SOCK_STREAM)
+            family = AF_INET6 if ":" in self._host else AF_INET
+            raw_socket = socket(family, SOCK_STREAM)
             if self.config.socket_receive_buffer_bytes is not None:
                 raw_socket.setsockopt(
                     SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes

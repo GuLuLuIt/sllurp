@@ -464,12 +464,23 @@ def decode_param(data):
     ret = None
     decoder_error = "UnknownParameter"
 
-    partype, vendorid, subtype, hdr_len, full_length = param_header_decode(data)
+    try:
+        partype, vendorid, subtype, hdr_len, full_length = param_header_decode(data)
+    except ValueError as exc:
+        raise LLRPError(f"Invalid LLRP parameter header: {exc}") from exc
 
     if not partype:
         # No parameter can be smaller than a tve_header
         return None, None, data
 
+    if full_length < hdr_len:
+        raise LLRPError(
+            f"Invalid LLRP parameter length {full_length}; header is {hdr_len} bytes"
+        )
+    if full_length > len(data):
+        raise LLRPError(
+            f"Truncated LLRP parameter: declared {full_length} bytes, got {len(data)}"
+        )
     pardata = data[hdr_len:full_length]
 
     param_name = Param_Type2Name.get((partype, vendorid, subtype))
@@ -479,6 +490,8 @@ def decode_param(data):
         except KeyError:
             logger.debugfast('"decode" func is missing for parameter %s', param_name)
             decoder_error = "DecodeFunctionMissing"
+        except (struct.error, ValueError, TypeError, IndexError) as exc:
+            raise LLRPError(f"Unable to decode parameter {param_name}: {exc}") from exc
     else:
         logger.debugfast(
             '"unknown parameter" can\'t be decoded (%s, %s, %s)',
@@ -4685,6 +4698,7 @@ class LLRPROSpec(dict):
         impinj_search_mode=None,
         impinj_tag_content_selector=None,
         frequencies=None,
+        impinj_fixed_frequency=None,
     ):
         # Sanity checks
         if rospecid <= 0:
@@ -4713,7 +4727,10 @@ class LLRPROSpec(dict):
         # if reader mode settings are specified, pepper them into this ROSpec
         override_tari = None
         if reader_mode is not None:
-            if tari is not None and tari < reader_mode["MaxTari"]:
+            if (
+                tari is not None
+                and reader_mode["MinTari"] <= tari <= reader_mode["MaxTari"]
+            ):
                 override_tari = tari
 
             # BUG: Impinj Speedway Revolution readers, and possibly others,
@@ -4855,12 +4872,20 @@ class LLRPROSpec(dict):
                     "InventorySearchMode": int(impinj_search_mode)
                 }
 
-            if frequencies.get("Automatic", False):
+            use_impinj_fixed_frequency = impinj_fixed_frequency
+            if use_impinj_fixed_frequency is None:
+                # Preserve the direct LLRPROSpec API's historical behavior.
+                # LLRPReaderConfig passes an explicit boolean so generic readers
+                # never receive an Impinj custom parameter by accident.
+                use_impinj_fixed_frequency = (
+                    frequencies.get("Automatic", False) or len(freq_channel_list) > 1
+                )
+            if use_impinj_fixed_frequency and frequencies.get("Automatic", False):
                 antconf["C1G2InventoryCommand"][0]["ImpinjFixedFrequencyList"] = {
                     "FixedFrequencyMode": 1,
                     "ChannelList": [],
                 }
-            elif len(freq_channel_list) > 1:
+            elif use_impinj_fixed_frequency and len(freq_channel_list) > 1:
                 antconf["C1G2InventoryCommand"][0]["ImpinjFixedFrequencyList"] = {
                     "FixedFrequencyMode": 2,
                     "ChannelList": freq_channel_list,

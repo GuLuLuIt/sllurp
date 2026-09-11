@@ -41,6 +41,7 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
 
     root = logging.getLogger()
     root.setLevel(loglevel)
+    root.handlers.clear()
     root.addHandler(stderr_handler)
     root.addHandler(stdout_handler)
 

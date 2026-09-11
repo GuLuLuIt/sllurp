@@ -22,6 +22,15 @@ var/
 .installed.cfg
 *.egg
 
+# Local secrets / reader TLS material
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

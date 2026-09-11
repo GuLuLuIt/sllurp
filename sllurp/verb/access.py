@@ -3,7 +3,7 @@ import logging
 import pprint
 import sys
 
-from sllurp.util import monotonic
+from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import (
     LLRPReaderConfig,
     LLRPReaderClient,
@@ -40,7 +40,17 @@ def access_cb(reader, state):
         )
     elif args.write_words:
         # bytes
-        data = sys.stdin.buffer.read(args.write_words * 2)
+        expected_bytes = args.write_words * 2
+        data = sys.stdin.buffer.read(expected_bytes)
+        if len(data) != expected_bytes:
+            logger.error(
+                "Expected %d bytes on stdin for --write-words=%d, got %d",
+                expected_bytes,
+                args.write_words,
+                len(data),
+            )
+            reader.disconnect()
+            return
 
         opspec = C1G2Write(
             AccessPassword=args.access_password,
@@ -83,14 +93,18 @@ def main(main_args):
         logger.info("No readers specified.")
         return 0
 
-    if not args.read_words and not args.write_words:
-        logger.info("Error: Either --read-words or --write-words has to be" " chosen.")
-        return 0
+    if args.read_words is not None and args.write_words is not None:
+        logger.error("Choose only one of --read-words or --write-words.")
+        return 2
+    if args.read_words is None and args.write_words is None:
+        logger.info("Error: Either --read-words or --write-words has to be chosen.")
+        return 2
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
     frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
 
     factory_args = dict(
+        duration=args.time,
         report_every_n_tags=args.every_n,
         antennas=enabled_antennas,
         tx_power=args.tx_power,
@@ -105,7 +119,7 @@ def main(main_args):
         tls_client_key=args.tls_client_key,
         tls_server_hostname=args.tls_server_hostname,
         start_inventory=True,
-        disconnect_when_done=True,
+        disconnect_when_done=bool(args.time and args.time > 0),
         tag_content_selector={
             "EnableROSpecID": False,
             "EnableSpecIndex": False,
@@ -123,6 +137,7 @@ def main(main_args):
             "ChannelList": frequency_list,
             "Automatic": False,
         },
+        impinj_fixed_frequency=getattr(args, "impinj_fixed_frequency", False),
     )
 
     if frequency_list[0] == 0:
@@ -130,12 +145,8 @@ def main(main_args):
         factory_args["frequencies"]["ChannelList"] = [1]
 
     reader_clients = []
-    for host in args.host:
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port)
-        else:
-            port = args.port
+    for host_value in args.host:
+        host, port = split_host_port(host_value, args.port)
 
         config = LLRPReaderConfig(factory_args)
         reader = LLRPReaderClient(host, port, config)

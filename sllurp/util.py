@@ -35,6 +35,31 @@ def natural_keys(text):
     return [atoi(c) for c in re.split("([0-9]+)", text)]
 
 
+def split_host_port(value, default_port):
+    """Split CLI reader address syntax while preserving IPv6 literals.
+
+    IPv6 with an explicit port must use bracket notation, e.g.
+    ``[2001:db8::1]:5084``. An unbracketed IPv6 literal is treated as a host
+    with ``default_port``.
+    """
+    if value.startswith("["):
+        end = value.find("]")
+        if end < 0:
+            raise ValueError("missing closing bracket in IPv6 reader address")
+        host = value[1:end]
+        remainder = value[end + 1 :]
+        if not remainder:
+            return host, default_port
+        if not remainder.startswith(":") or not remainder[1:]:
+            raise ValueError("invalid bracketed reader address")
+        return host, int(remainder[1:])
+    if value.count(":") == 1:
+        host, port = value.rsplit(":", 1)
+        if host and port:
+            return host, int(port)
+    return value, default_port
+
+
 def find_closest(table, target):
     """Return the greatest table entry not above target.
 
