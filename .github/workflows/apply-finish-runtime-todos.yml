@@ -1,0 +1,32 @@
+name: Apply finish runtime TODOs
+
+on:
+  push:
+    branches:
+      - feature/finish-software-todos-2026-09-11
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+      - name: Install test dependencies
+        run: pip install -e .[test]
+      - name: Apply runtime TODO patch
+        run: python tools/_finish_runtime_todos.py
+      - name: Run full test suite before commit
+        run: pytest
+      - name: Commit tested result
+        run: |
+          git config user.name "GuLuLuIt"
+          git config user.email "lini10011001@gmail.com"
+          git add -A
+          git commit -m "Finish LLRP runtime software TODOs"
+          git push
