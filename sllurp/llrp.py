@@ -1,3 +1,4 @@
+import math
 import select
 import ssl
 
@@ -385,6 +386,7 @@ class LLRPClient:
         # Configuration reported by the reader.
         # Not to be confused with the client config.
         self.reader_config = {}
+        self.reader_config_summary = {}
         self.reader_mode = None
         self.max_ant = 0
 
@@ -413,13 +415,32 @@ class LLRPClient:
 
         self.disconnecting = False
         self.dedup_backend_active = "disabled"
+        self._pause_resume_timer = None
+        self._pause_resume_generation = 0
 
     def update_config(self, new_config):
-        """Update LLRPClient's config
+        """Replace client configuration while the protocol is disconnected.
 
-        Not completely safe, to be used with caution.
+        Generic live replacement used to mutate ``self.config`` while cached
+        ROSpec and reader-side state were still active.  That could make the
+        Python object claim settings the reader had never accepted.  Targeted
+        live setters remain available; generic replacement is intentionally
+        atomic and disconnected-only until a transactional live-config API is
+        implemented.
         """
+        validate = getattr(new_config, "validate_config", None)
+        if callable(validate):
+            validate()
+        if self.state != LLRPReaderState.STATE_DISCONNECTED:
+            raise ReaderConfigurationError(
+                "update_config requires a disconnected protocol session; "
+                "disconnect first or use a targeted live setter"
+            )
         self.config = new_config
+        self.rospec = None
+        self.reader_config = {}
+        self.reader_config_summary = {}
+        self.dedup_backend_active = "disabled"
 
     def _uses_impinj_extensions(self):
         """Return whether the current configuration explicitly needs Impinj extensions."""
@@ -433,6 +454,8 @@ class LLRPClient:
 
     def setState(self, newstate, onCompletion=None):
         assert newstate is not None
+        if newstate == LLRPReaderState.STATE_DISCONNECTED:
+            self._cancel_pause_resume_timer()
         if is_general_debug_enabled():
             logger.debugfast(
                 "state change: %s -> %s",
@@ -446,8 +469,72 @@ class LLRPClient:
             self.state_change_callback(newstate)
 
     def parseReaderConfig(self, confdict):
-        """Parse a reader configuration dictionary and adjust instance settings."""
-        return
+        """Normalize useful standard reader-side configuration.
+
+        ``reader_config`` remains the raw decoded GET_READER_CONFIG response for
+        backwards compatibility.  ``reader_config_summary`` is a stable,
+        vendor-neutral view of standard fields that were actually reported by
+        the reader.  Missing optional fields stay absent rather than being
+        invented.
+        """
+        if not isinstance(confdict, dict):
+            raise ReaderConfigurationError("reader configuration must be a dictionary")
+
+        def as_list(value):
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return value
+            if isinstance(value, tuple):
+                return list(value)
+            return [value]
+
+        summary = {}
+
+        antenna_properties = {}
+        for item in as_list(confdict.get("AntennaProperties")):
+            if not isinstance(item, dict) or "AntennaID" not in item:
+                continue
+            antenna_id = item["AntennaID"]
+            antenna_properties[antenna_id] = {
+                "connected": item.get("AntennaConnected"),
+                "gain": item.get("AntennaGain"),
+            }
+        if antenna_properties:
+            summary["antenna_properties"] = antenna_properties
+
+        antenna_configurations = {}
+        for item in as_list(confdict.get("AntennaConfiguration")):
+            if not isinstance(item, dict) or "AntennaID" not in item:
+                continue
+            antenna_configurations[item["AntennaID"]] = dict(item)
+        if antenna_configurations:
+            summary["antenna_configurations"] = antenna_configurations
+
+        singular_fields = {
+            "KeepaliveSpec": "keepalive",
+            "ReaderEventNotificationSpec": "event_notifications",
+            "AccessReportSpec": "access_report",
+            "EventsAndReports": "events_and_reports",
+        }
+        for source, target in singular_fields.items():
+            if source in confdict:
+                value = confdict[source]
+                summary[target] = dict(value) if isinstance(value, dict) else value
+
+        repeated_fields = {
+            "GPIPortCurrentState": "gpi_ports",
+            "GPOWriteData": "gpo_ports",
+        }
+        for source, target in repeated_fields.items():
+            if source in confdict:
+                summary[target] = [
+                    dict(item) if isinstance(item, dict) else item
+                    for item in as_list(confdict[source])
+                ]
+
+        self.reader_config_summary = summary
+        return None
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings.
@@ -1450,14 +1537,45 @@ class LLRPClient:
 
             self.stopPolitely(onCompletion=on_politely_stopped_cb)
 
+    def _cancel_pause_resume_timer(self):
+        """Cancel a scheduled timed-pause resume and invalidate stale callbacks."""
+        self._pause_resume_generation += 1
+        timer = self._pause_resume_timer
+        self._pause_resume_timer = None
+        if timer is not None:
+            timer.cancel()
+
+    def _schedule_pause_resume(self, duration_seconds, force_regen_rospec=False):
+        self._cancel_pause_resume_timer()
+        generation = self._pause_resume_generation
+
+        def timed_resume():
+            if generation != self._pause_resume_generation:
+                return
+            self._pause_resume_timer = None
+            if self.state != LLRPReaderState.STATE_PAUSED:
+                return
+            self._resume_inventory(force_regen_rospec=force_regen_rospec)
+
+        timer = Timer(duration_seconds, timed_resume)
+        timer.daemon = True
+        self._pause_resume_timer = timer
+        timer.start()
+
     def pause(self, duration_seconds=0, force=False, force_regen_rospec=False):
-        """Pause an inventory operation for a set amount of time."""
+        """Pause inventory, optionally resuming automatically after a duration."""
         logger.debugfast("pause(%s)", duration_seconds)
-        # Temporary error until fixed.
-        if duration_seconds > 0:
+        if (
+            isinstance(duration_seconds, bool)
+            or not isinstance(duration_seconds, (int, float))
+            or not math.isfinite(duration_seconds)
+            or duration_seconds < 0
+        ):
             raise ReaderConfigurationError(
-                '"duration_seconds > 0" is not yet' 'implemented for "pause".'
+                "pause duration_seconds must be a finite non-negative number"
             )
+        duration_seconds = float(duration_seconds)
+
         if self.state != LLRPReaderState.STATE_INVENTORYING:
             if not force:
                 logger.info(
@@ -1465,35 +1583,31 @@ class LLRPClient:
                     LLRPReaderState.getStateName(self.state),
                 )
                 return None
-            else:
-                logger.info("forcing pause()")
+            logger.info("forcing pause()")
 
+        self._cancel_pause_resume_timer()
         if duration_seconds:
             logger.info("pausing for %s seconds", duration_seconds)
 
         rospec = self.getROSpec(force_new=force_regen_rospec)
-
         self.sendMessage({"DISABLE_ROSPEC": {"ROSpecID": rospec["ROSpecID"]}})
         self.setState(LLRPReaderState.STATE_PAUSING)
 
         def disable_rospec_pause_cb(state, is_success, *args):
             if is_success:
                 self.setState(LLRPReaderState.STATE_PAUSED)
+                if duration_seconds > 0:
+                    self._schedule_pause_resume(
+                        duration_seconds,
+                        force_regen_rospec=force_regen_rospec,
+                    )
             else:
                 self.complain(None, "pause() failed")
 
         self._deferreds["DISABLE_ROSPEC_RESPONSE"].append(disable_rospec_pause_cb)
-
-        # TODO @fviard To be fixed!!
-        if duration_seconds > 0:
-            logger.warning("TO BE FIXED!!")
-            # startAgain = task.deferLater(reactor, duration_seconds,
-            #                             lambda: None)
-            # startAgain.addCallback(lambda _: self.resume())
-
         return disable_rospec_pause_cb
 
-    def resume(self, force_regen_rospec=False):
+    def _resume_inventory(self, force_regen_rospec=False):
         logger.debugfast("resuming, force_regen_rospec=%s", force_regen_rospec)
 
         if force_regen_rospec:
@@ -1509,7 +1623,7 @@ class LLRPClient:
 
         if self.state != LLRPReaderState.STATE_PAUSED:
             logger.debugfast(
-                "cannot resume() if not paused (state=%s); " "ignoring",
+                "cannot resume() if not paused (state=%s); ignoring",
                 LLRPReaderState.getStateName(self.state),
             )
             return None
@@ -1523,6 +1637,11 @@ class LLRPClient:
                 self.complain(None, "resume() failed")
 
         self.send_ENABLE_ROSPEC(None, self.rospec, onCompletion=enable_rospec_resume_cb)
+
+    def resume(self, force_regen_rospec=False):
+        """Resume inventory and cancel any outstanding timed-pause resume."""
+        self._cancel_pause_resume_timer()
+        return self._resume_inventory(force_regen_rospec=force_regen_rospec)
 
     def sendMessage(self, msg_dict):
         """Serialize and send a dict LLRP Message
@@ -1694,6 +1813,11 @@ class LLRPReaderConfig:
             raise LLRPError(
                 f"max_message_size must be at least {msg_header_len} bytes or None"
             )
+        if "Channelist" in self.frequencies:
+            if "ChannelList" not in self.frequencies:
+                self.frequencies["ChannelList"] = self.frequencies["Channelist"]
+            self.frequencies.pop("Channelist", None)
+
         channel_list = self.frequencies.get("ChannelList", [])
         if not isinstance(channel_list, (list, tuple)) or not channel_list:
             raise LLRPError("frequencies ChannelList must contain at least one channel")
@@ -1741,8 +1865,6 @@ class LLRPReaderConfig:
         ):
             raise LLRPError("socket_receive_buffer_bytes must be a positive integer or None")
 
-        if "Channelist" in self.frequencies and "ChannelList" not in self.frequencies:
-            self.frequencies["ChannelList"] = self.frequencies.pop("Channelist")
         if self.tls_client_key and not self.tls_client_cert:
             raise LLRPError("tls_client_key requires tls_client_cert")
         if hasattr(self, "tx_power"):
@@ -1779,6 +1901,7 @@ class LLRPReaderClient:
     def __init__(self, host, port=None, config=None, timeout=5.0):
         global all_reader_refs
 
+        self._port_explicit = port is not None
         if port is None:
             port = (
                 LLRP_SECURE_PORT
@@ -1840,12 +1963,26 @@ class LLRPReaderClient:
         all_reader_refs.add(self)
 
     def update_config(self, new_config):
-        """Update ReaderClient's config
+        """Atomically replace configuration while fully disconnected.
 
-        Not completely safe, to be used with caution.
+        Generic live replacement is rejected before any local state changes,
+        preventing desired config, cached ROSpec and reader-side state from
+        silently diverging.
         """
-        self.config = new_config
-        self._deduplicator = (
+        validate = getattr(new_config, "validate_config", None)
+        if callable(validate):
+            validate()
+        if (
+            self._socket is not None
+            or self.is_alive()
+            or (self.llrp and self.llrp.state != LLRPReaderState.STATE_DISCONNECTED)
+        ):
+            raise ReaderConfigurationError(
+                "update_config requires a fully disconnected reader; "
+                "disconnect first or use a targeted live setter"
+            )
+
+        new_deduplicator = (
             TagReportDeduplicator(
                 window_seconds=new_config.dedup_seconds,
                 max_entries=new_config.dedup_max_entries,
@@ -1855,6 +1992,13 @@ class LLRPReaderClient:
         )
         if self.llrp:
             self.llrp.update_config(new_config)
+
+        self.config = new_config
+        self._deduplicator = new_deduplicator
+        if not self._port_explicit:
+            self._port = (
+                LLRP_SECURE_PORT if new_config.tls_enabled else LLRP_DEFAULT_PORT
+            )
 
     def get_peername(self):
         return (self._host, self._port)
@@ -2012,6 +2156,7 @@ class LLRPReaderClient:
         self.partial_data = b""
         self.expected_bytes = 0
         if self.llrp:
+            self.llrp._cancel_pause_resume_timer()
             self.llrp._deferreds.clear()
             self.llrp.rospec = None
             self.llrp.disconnecting = False
@@ -2105,6 +2250,8 @@ class LLRPReaderClient:
     def hard_disconnect(self):
         """Stop the recv worker, close sockets, and reset frame state."""
         self._cancel_duration_timer()
+        if self.llrp:
+            self.llrp._cancel_pause_resume_timer()
         self.partial_data = b""
         self.expected_bytes = 0
         self._stop_main_loop.set()
@@ -2389,7 +2536,7 @@ class LLRPReaderClient:
         if self._disconnected_notified:
             return
         self._disconnected_notified = True
-        for fn in self._disconnected_callbacks:
+        for fn in tuple(self._disconnected_callbacks):
             try:
                 fn(self)
             except:
@@ -2403,7 +2550,7 @@ class LLRPReaderClient:
             self._schedule_duration_disconnect()
         elif newstate == LLRPReaderState.STATE_DISCONNECTED:
             self._cancel_duration_timer()
-        for fn in self._llrp_state_callbacks[newstate]:
+        for fn in tuple(self._llrp_state_callbacks[newstate]):
             try:
                 fn(self, newstate)
             except:
@@ -2417,7 +2564,7 @@ class LLRPReaderClient:
         msgName = lmsg.getName()
         # call per-message callbacks
         logger.debugfast("starting message callbacks for %s", msgName)
-        for fn in self._llrp_message_callbacks[msgName]:
+        for fn in tuple(self._llrp_message_callbacks[msgName]):
             try:
                 fn(self, lmsg)
             except:
@@ -2435,7 +2582,7 @@ class LLRPReaderClient:
             tags_report_dict = self._deduplicator.filter(tags_report_dict)
             if not tags_report_dict:
                 return
-        for fn in self._tag_report_callbacks:
+        for fn in tuple(self._tag_report_callbacks):
             try:
                 fn(self, tags_report_dict)
             except:
@@ -2448,7 +2595,7 @@ class LLRPReaderClient:
         event_data_dict = lmsg.msgdict["READER_EVENT_NOTIFICATION"][
             "ReaderEventNotificationData"
         ]
-        for fn in self._event_notification_callbacks:
+        for fn in tuple(self._event_notification_callbacks):
             try:
                 fn(self, event_data_dict)
             except:
