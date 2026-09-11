@@ -99,7 +99,8 @@ jobs:
           /tmp/sllurp-final-smoke/bin/sllurp --help >/dev/null
       - name: Commit validated patch
         run: |
-          git rm -f tools/final_hardening.py .github/workflows/final-hardening.yml
+          git restore --source=HEAD -- .github/workflows/test.yml .github/workflows/codespell.yml .github/workflows/publish-to-pypi.yaml .github/workflows/final-hardening.yml
+          git rm -f tools/final_hardening.py
           git add -A
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
