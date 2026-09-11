@@ -33,7 +33,6 @@ jobs:
                   raise RuntimeError(f"{path}: expected {count}, found {actual}: {old[:80]!r}")
               p.write_text(text.replace(old, new, count))
 
-          # Keep direct verb.main() callers compatible with pre-flag Args objects.
           for path in (
               "sllurp/verb/inventory.py",
               "sllurp/verb/log.py",
@@ -45,9 +44,6 @@ jobs:
                   'impinj_fixed_frequency=getattr(args, "impinj_fixed_frequency", False),',
               )
 
-          # The legacy dynamic-command fixtures deliberately exercise automatic
-          # frequency selection, which is an Impinj vendor extension. Make that
-          # opt-in explicit instead of weakening production validation.
           replace(
               "tests/test_dynamic_commands.py",
               '''        hoptable_id=1,\n        **tls_args(),\n''',
@@ -55,35 +51,30 @@ jobs:
               count=3,
           )
 
-          # A session reset is internal bookkeeping; don't emit a duplicate state callback.
           replace(
               "sllurp/llrp.py",
               '''        if self.llrp:\n            self.llrp._deferreds.clear()\n            self.llrp.rospec = None\n            self.llrp.disconnecting = False\n            self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)\n''',
               '''        if self.llrp:\n            self.llrp._deferreds.clear()\n            self.llrp.rospec = None\n            self.llrp.disconnecting = False\n            self.llrp.state = LLRPReaderState.STATE_DISCONNECTED\n''',
           )
 
-          # Avoid the Python 3.14 utcnow deprecation in a long-running logger.
           replace(
               "sllurp/verb/log.py",
               '''                timestamp = (\n                    datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)\n                ).total_seconds()\n''',
               '''                timestamp = datetime.datetime.now(\n                    datetime.timezone.utc\n                ).timestamp()\n''',
           )
 
-          # Streaming CSV is intentional: verify emitted data instead of an in-memory cache.
           replace(
               "tests/test_dynamic_commands.py",
               '''    assert logger.num_tags == 3\n    assert len(logger.rows) == 1\n    assert logger.rows[0][:4] == (2.0, "reader-a:5084", 2, -40)\n    assert "wanted" in output.getvalue()\n    assert "ignored" not in output.getvalue()\n''',
               '''    assert logger.num_tags == 3\n    assert not hasattr(logger, "rows")\n    assert "2.0,reader-a:5084,2,-40,wanted" in output.getvalue()\n    assert "ignored" not in output.getvalue()\n''',
           )
 
-          # Integer dBm is a valid numeric API input; normalize it just like float input.
           replace(
               "tests/test_llrp_objects.py",
               '''    with pytest.raises(LLRPError, match="tx_power must be dict or float"):\n        client_config(tx_power_dbm=10)\n\n    config = client_config(antennas=[1, 2], tx_power_dbm=12.5)\n''',
               '''    int_config = client_config(tx_power_dbm=10)\n    assert int_config.tx_power_dbm == {1: 10.0}\n\n    config = client_config(antennas=[1, 2], tx_power_dbm=12.5)\n''',
           )
 
-          # Capability validation already treats MaxTari as inclusive; ROSpec generation must match.
           replace(
               "tests/test_rospec_dynamic.py",
               '''def test_rospec_tari_at_or_above_mode_max_is_not_overridden():\n    mode = {"ModeIdentifier": 7, "MinTari": 10, "MaxTari": 20}\n    rospec = LLRPROSpec(mode, 1, tari=20)\n\n    control = _antenna_configs(rospec)[0]["C1G2InventoryCommand"][0]["C1G2RFControl"]\n    assert control == {"ModeIndex": 7, "Tari": 0}\n''',
@@ -108,7 +99,7 @@ jobs:
           /tmp/sllurp-final-smoke/bin/sllurp --help >/dev/null
       - name: Commit validated patch
         run: |
-          git rm tools/final_hardening.py .github/workflows/final-hardening.yml
+          git rm -f tools/final_hardening.py .github/workflows/final-hardening.yml
           git add -A
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
