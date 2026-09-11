@@ -14,6 +14,7 @@ from sllurp.llrp import (
     LLRPReaderConfig,
     LLRPReaderState,
 )
+from sllurp.llrp_errors import ReaderConfigurationError
 from sllurp.llrp_proto import LLRPError
 
 
