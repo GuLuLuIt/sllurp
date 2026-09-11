@@ -4,7 +4,7 @@ path = Path(__file__).with_name("_finish_runtime_todos.py")
 text = path.read_text()
 start = text.index("# Resume from PAUSED with no reader-side ROSpec")
 end = text.index("replace_method(\n    \"sendMessage\"", start)
-replacement = r'''# Resume safely when a paused ROSpec was removed/regenerated.
+replacement = r"""# Resume safely when a paused ROSpec was removed/regenerated.
 replace_method(
     "_resume_inventory",
     '''    def _resume_inventory(self, force_regen_rospec=False):
@@ -53,7 +53,7 @@ replace_method(
 ''',
 )
 
-'''
+"""
 text = text[:start] + replacement + text[end:]
 path.write_text(text)
 Path(__file__).unlink()
