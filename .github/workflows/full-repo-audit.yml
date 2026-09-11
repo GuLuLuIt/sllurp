@@ -1,0 +1,46 @@
+name: Full repository audit
+
+on:
+  push:
+    branches:
+      - audit/full-repo-sanity-2026-09-11
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install project and audit tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+          python -m pip install ruff vulture bandit build twine
+      - name: Baseline tests
+        run: pytest -q
+      - name: Compile all Python
+        run: python -m compileall -q sllurp tests examples
+      - name: Ruff findings
+        continue-on-error: true
+        run: ruff check sllurp tests examples
+      - name: Dead-code findings
+        continue-on-error: true
+        run: vulture sllurp --min-confidence 80
+      - name: Security findings
+        continue-on-error: true
+        run: bandit -r sllurp -q
+      - name: Stale-marker scan
+        run: |
+          grep -RInE 'TODO|FIXME|XXX|HACK|DEPRECATED|deprecated|NotImplemented' sllurp tests docs examples README.rst BUGS.md TODO.md UPSTREAM_ISSUES.md || true
+      - name: Package build
+        run: python -m build
+      - name: Package metadata check
+        run: twine check dist/*
+      - name: Warnings-as-errors smoke
+        continue-on-error: true
+        run: pytest -q -W error
