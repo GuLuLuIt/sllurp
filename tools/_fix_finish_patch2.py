@@ -21,7 +21,7 @@ block = block.replace(
 )
 text = text[:idx] + block + text[end:]
 
-# Keep the existing two-argument processDeferreds call seam.  The current
+# Keep the existing two-argument processDeferreds call seam. The current
 # response ID is captured on the client at handleMessage entry instead.
 text = text.replace(
     'self.processDeferreds(msgName, lmsg.isSuccess(), message_id)',
@@ -45,11 +45,10 @@ text = text.replace(
 )
 
 # Replace the request-send core so tracked state is registered before transport
-# write while still routing through sendMessage(), which is an established
-# public/mocking seam in the existing test suite.
+# write while still routing through sendMessage(), an established test seam.
 start = text.index('replace_method(\n    "sendMessage",')
 end = text.index('\n\n# Reader config request timeout option.', start)
-replacement = r'''replace_method(
+replacement = r"""replace_method(
     "sendMessage",
     '''    def _next_message_id(self):
         if self.last_msg_id < LLRP_MSG_ID_MAX:
@@ -74,7 +73,7 @@ replacement = r'''replace_method(
         return llrp_msg.msgbytes, sent_ids
 
     def _send_request(self, msg_dict, response_name, onCompletion=None, new_state=None):
-        """Register exact pending state before transport write, then send."""
+        # Register exact pending state before transport write, then send.
         with self._request_lock:
             if self._pending_requests.has_response_type(response_name) or self._deferreds.get(response_name):
                 raise ReaderConfigurationError(
@@ -113,7 +112,7 @@ replacement = r'''replace_method(
             return message_id
 
     def sendMessage(self, msg_dict):
-        """Serialize and send one or more LLRP messages."""
+        # Serialize and send one or more LLRP messages.
         with self._request_lock:
             if not getattr(self, "_sending_registered_request", False):
                 for name in msg_dict:
@@ -131,11 +130,10 @@ replacement = r'''replace_method(
             return sent_ids
 ''',
 )
-'''
+"""
 text = text[:start] + replacement + text[end:]
 
-# Fix the new immediate-response test so only the tracked first write receives
-# an immediate response; subsequent state-machine writes are simply captured.
+# Only the tracked first write gets an immediate response in this race test.
 text = text.replace(
     '''    def write(data):
         client = holder["client"]
@@ -155,8 +153,7 @@ text = text.replace(
     1,
 )
 
-# LLRPROSpec accepts no reader-mode override; this is sufficient for testing
-# generated-state snapshots without fabricating an incomplete RF mode table.
+# No incomplete RF-mode fixture is needed to verify generated-state snapshots.
 text = text.replace(
     '''    client.reader_mode = {"ModeIdentifier": 1}
     client.getROSpec(force_new=True)
