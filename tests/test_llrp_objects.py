@@ -217,9 +217,6 @@ def test_pause_and_resume_state_machine_without_reader(monkeypatch):
     monkeypatch.setattr(client, "getROSpec", lambda force_new=False: {"ROSpecID": 7})
     monkeypatch.setattr(client, "sendMessage", sent.append)
 
-    with pytest.raises(ReaderConfigurationError, match="not yet"):
-        client.pause(duration_seconds=1)
-
     assert client.pause() is None
 
     callback = client.pause(force=True)

@@ -1,433 +1,342 @@
-# Known Bugs
+# Known Bugs and Resolutions
 
-This file tracks confirmed or high-confidence correctness issues discovered during the deep runtime/state-machine review. These items are intentionally separated from broad cleanup work so they can be fixed with focused tests and without turning `sllurp/llrp.py` into an all-at-once rewrite.
+This document records correctness issues found during the deep runtime/state-machine review and how they were resolved on `fix/core-state-bugs-2026-09-11`.
 
-The guiding rule for this list is:
+Core rule:
 
-> Core LLRP behavior must be reproducible in CI using fake transports, synthetic LLRP frames and deterministic state-machine tests. Physical RFID readers are a final interoperability layer, not a prerequisite for ordinary bug fixing.
+> Core LLRP correctness must be reproducible in CI with fake transports, synthetic frames and deterministic state-machine tests. Physical readers are the final interoperability layer, not a prerequisite for fixing Python/state-machine bugs.
 
----
+## Status summary
 
-## 1. Legacy frequency compatibility is validated before migration
+| # | Finding | Severity | Status | Hardware needed to fix? |
+|---|---|---:|---|---|
+| 1 | Legacy `Channelist` normalized after validation | Medium | **Fixed** | No |
+| 2 | Generic live `update_config()` could desynchronize desired/applied state | High | **Fixed / made safe** | No |
+| 3 | Callback collections could mutate during dispatch | Medium-High | **Fixed** | No |
+| 4 | Generic live config had no transaction/rollback semantics | High | **Fixed by prohibiting unsafe generic live replacement** | No |
+| 5 | `parseReaderConfig()` provided no normalized reader-side state | Medium | **Fixed** | No |
 
-**Area:** `sllurp/llrp.py` / `LLRPReaderConfig.validate_config()`  
-**Severity:** Medium  
-**Status:** Confirmed  
-**Physical reader required to fix:** **No**
-
-### Problem
-
-Older callers may provide the historical misspelled frequency key `Channelist`. The current compatibility path is intended to normalize that legacy key into the supported `ChannelList` form, but validation happens before the migration is applied.
-
-That creates an ordering bug:
-
-```text
-Legacy application config
-        |
-        v
-+---------------------------+
-| frequencies["Channelist"] |
-+---------------------------+
-        |
-        v
-+------------------------------+
-| validate ChannelList first   |  <-- legacy key not migrated yet
-+------------------------------+
-        |
-        +----> validation may fail
-        |
-        X
-+------------------------------+
-| migrate Channelist ->        |
-| ChannelList                  |
-+------------------------------+
-        ^
-        |
-   reached too late
-```
-
-### Expected behavior
-
-Normalization must happen before validation:
-
-```text
-Legacy application config
-        |
-        v
-+---------------------------+
-| Channelist present?       |
-+---------------------------+
-        |
-        | yes
-        v
-+---------------------------+
-| normalize to ChannelList  |
-+---------------------------+
-        |
-        v
-+---------------------------+
-| validate normalized data  |
-+---------------------------+
-        |
-        v
-      READY
-```
-
-### User-visible impact
-
-A configuration that was historically accepted can fail before the compatibility layer gets a chance to repair it. This is especially confusing because the code appears to support the old spelling but the execution order prevents that support from working reliably.
-
-### Acceptance criteria
-
-- A config containing only `Channelist` is normalized before frequency validation.
-- The normalized config contains `ChannelList` with the same values.
-- A config containing the modern `ChannelList` continues to work unchanged.
-- If both keys are present, precedence is deterministic and documented.
-- Invalid channel values still fail validation after normalization.
-
-### Test strategy
-
-No hardware is required. Add unit tests that construct legacy, modern and conflicting forms and assert the normalized result before any transport is created.
+The remaining *feature* work for a fully transactional live configuration engine is tracked in `TODO.md`; it is no longer treated as an unfenced correctness bug because generic `update_config()` now refuses unsafe live replacement.
 
 ---
 
-## 2. Live `update_config()` can leave desired and applied state inconsistent
+## 1. Legacy frequency compatibility was validated before migration — FIXED
 
-**Area:** `LLRPReaderClient.update_config()` / `LLRPClient.update_config()`  
-**Severity:** High  
-**Status:** Confirmed design/correctness hazard  
-**Physical reader required to implement:** **No**  
-**Physical reader recommended for final validation:** **Yes**
+**Area:** `LLRPReaderConfig.validate_config()`  
+**Resolution:** normalize before validation.
 
-### Problem
+### Previous failure
 
-The current runtime update path can replace the client configuration object while the protocol state machine is already active. The API itself warns that this is not completely safe.
+```text
+legacy config
+    |
+    v
+Channelist=[1]
+    |
+    v
+validate ChannelList     <-- missing
+    |
+    X validation error
+    |
+    v
+migrate legacy key       <-- unreachable/too late
+```
 
-The dangerous condition is that several different representations of configuration can exist at once:
+### Current flow
+
+```text
+legacy or modern config
+         |
+         v
++------------------------+
+| normalize keys first   |
+| Channelist ->          |
+| ChannelList            |
++------------------------+
+         |
+         v
++------------------------+
+| validate channel list  |
++------------------------+
+         |
+         v
+       READY
+```
+
+If both keys are present, modern `ChannelList` wins and the legacy spelling is discarded. Invalid values are still rejected after normalization.
+
+### Regression coverage
+
+- legacy-only `Channelist`
+- modern-only `ChannelList`
+- both keys present
+- validation still runs on normalized values
+
+**Hardware:** not required.
+
+---
+
+## 2. Generic `update_config()` could leave Python and reader state inconsistent — FIXED / FENCED
+
+**Area:** `LLRPClient.update_config()` and `LLRPReaderClient.update_config()`
+
+### Previous risk
+
+A raw assignment could make the application believe new configuration was active while the cached ROSpec and reader were still using old settings:
 
 ```text
                  application
                      |
-                     v
-             +---------------+
-             | desired config |
-             +---------------+
-                     |
-              update_config()
+              update_config(X)
                      |
                      v
-              self.config = X
+             self.config = X
                      |
           +----------+----------+
           |                     |
           v                     v
 +------------------+   +------------------+
 | cached ROSpec    |   | reader firmware  |
-| built from OLD   |   | still running OLD|
-| configuration    |   | configuration    |
+| OLD settings     |   | OLD settings     |
 +------------------+   +------------------+
           \                     /
-           \                   /
-            +------ MISMATCH --+
+           +------ MISMATCH ---+
 ```
 
-Examples of fields that may affect generated or reader-side state include antennas, TX power, RF mode, Tari, session, frequencies, report selectors, vendor extensions and dedup behavior.
+### Current safety model
 
-### Failure modes
-
-A live assignment can produce states such as:
+Generic replacement is now **atomic and disconnected-only**:
 
 ```text
-Python config says:      antennas = [1, 2]
-Active ROSpec says:      antennas = [1]
-Reader firmware runs:    antennas = [1]
-Application assumes:     update succeeded
+update_config(new)
+       |
+       v
+validate complete proposal
+       |
+       v
+fully disconnected?
+   /          \
+ no            yes
+ |              |
+ v              v
+reject       build dependent
+without      local state first
+mutation         |
+                 v
+             commit swap
+                 |
+                 v
+          invalidate stale
+          ROSpec/reported state
 ```
 
-or:
+The call raises `ReaderConfigurationError` before mutation if a socket/thread/protocol session is active. Targeted live setters that already implement their own state transition remain separate.
 
-```text
-Python config says:      tx_power = new value
-Cached ROSpec says:      old power index
-Reconnect occurs
-Rebuilt state depends on whichever object/path is consulted
-```
+`LLRPReaderClient` also rebuilds the software deduplicator before committing the new config. When the LLRP port was implicit, changing TLS mode updates the default port between 5084 and 5085; an explicitly supplied custom port is preserved.
 
-The result can be stale configuration, partial application, surprising reconnect behavior or an application believing a change is active when the reader never accepted it.
+### Why this counts as a bug fix
 
-### Target behavior
+The old API could silently claim a configuration that was never applied. The new API cannot enter that ambiguous state through generic replacement. A future transactional live-update engine is an enhancement, tracked in `TODO.md`.
 
-A runtime update should be a controlled state transition, not a raw assignment:
+### Regression coverage
 
-```text
-                 update request
-                       |
-                       v
-              +------------------+
-              | validate proposal|
-              +------------------+
-                       |
-                       v
-              +------------------+
-              | diff old vs new  |
-              +------------------+
-                       |
-             +---------+---------+
-             |                   |
-      live-safe change      restart-required
-             |                   |
-             v                   v
-       apply in place       pause inventory
-                                 |
-                                 v
-                           rebuild ROSpec
-                                 |
-                                 v
-                           apply to reader
-                                 |
-                         +-------+-------+
-                         |               |
-                      success          failure
-                         |               |
-                         v               v
-                       resume       rollback / clean
-                                    disconnect
-```
+- connected/inventorying replacement is rejected
+- rejection does not mutate current config or cached ROSpec
+- disconnected replacement succeeds
+- dedup state is rebuilt consistently
+- implicit TLS port updates
+- explicit custom port remains unchanged
 
-### Acceptance criteria
-
-- Configuration changes are validated before any runtime state is mutated.
-- The implementation computes which fields changed.
-- Changes that affect an active ROSpec invalidate/rebuild it deterministically.
-- Reader-side changes are applied before the new config is considered active.
-- Failure cannot leave `desired`, `generated` and `applied` state silently divergent.
-- Inventory resumes only after the transition succeeds.
-- Failure behavior is deterministic: rollback to the previous known-good state or disconnect with a clear error.
-- Reconnect after a successful update reproduces the same intended configuration.
-
-### Test strategy without hardware
-
-Use a fake transport and deterministic state transitions for at least:
-
-```text
-DISCONNECTED
-CONNECTED
-INVENTORYING
-PAUSING
-PAUSED
-```
-
-Inject failures at every outbound step and assert the final state, active config and generated ROSpec.
-
-### Hardware validation
-
-After CI passes, validate on representative readers by changing settings during real inventory and verifying stop/apply/resume behavior, reader rejection handling and reconnect persistence.
+**Hardware:** not required for the safety fix. Hardware remains useful when a future live-update engine is implemented.
 
 ---
 
-## 3. Callback collections can be mutated while dispatch is active
+## 3. Callback collections could mutate while dispatch was active — FIXED
 
-**Area:** state callbacks, tag-report callbacks, message callbacks, event callbacks, disconnect callbacks  
-**Severity:** Medium to High  
-**Status:** High-confidence concurrency hazard  
-**Physical reader required to fix:** **No**
+**Area:** state, message, tag-report, event and disconnect callbacks.
 
-### Problem
-
-Callbacks are invoked from reader/runtime threads while registration and removal can occur from application threads. Mutable callback collections can therefore be changed while another thread is iterating them.
+### Previous behavior
 
 ```text
-Thread A - reader thread                 Thread B - application thread
--------------------------                -----------------------------
-for cb in callbacks:                     callbacks.remove(cb2)
-    cb(event)                <------->   callbacks.append(cb3)
+Reader thread                         Application/callback thread
+-------------                         ---------------------------
+for cb in callbacks:                  callbacks.remove(cb2)
+    cb(event)          <---------->   callbacks.append(cb3)
 
-          shared mutable collection without a clear dispatch contract
+           same mutable list during iteration
 ```
 
-Potential consequences include skipped callbacks, callbacks running twice, ordering surprises, runtime exceptions, or callbacks being invoked after an application believes they were removed.
+Python list mutation during iteration can skip entries or make dispatch semantics surprising even without an exception.
 
-### Desired dispatch model
-
-One safe model is snapshot iteration:
+### Current behavior: stable dispatch snapshot
 
 ```text
-          shared callback registry
-                   |
-             lock briefly
-                   |
-                   v
-         +-------------------+
-         | copy/snapshot list|
-         +-------------------+
-                   |
-              unlock early
-                   |
-                   v
-          invoke snapshot only
-          /       |        \
-        cb1      cb2       cb3
+callback registry
+       |
+       v
+ tuple(snapshot)
+       |
+       +----------+----------+
+       |          |          |
+       v          v          v
+      cb1        cb2        cb3
+
+registry mutations affect NEXT dispatch
 ```
 
-This keeps user callback execution outside the registry lock and gives each dispatch operation a stable view.
+Every user-callback dispatch now iterates a tuple snapshot. Application callback code is not run while holding an internal registry lock.
 
-### Acceptance criteria
+Defined semantics:
 
-- Register/remove/clear operations are safe during active dispatch.
-- A callback can add or remove callbacks from inside another callback without corrupting iteration.
-- Callback order is explicitly defined.
-- The lock, if used, is never held while application callback code executes.
-- Callback exceptions continue to follow a defined policy and do not corrupt the registry.
+- a callback removed during a dispatch may still run if it was already in that dispatch snapshot;
+- the removal takes effect on the next dispatch;
+- a callback added during dispatch first runs on the next dispatch;
+- ordering remains registration order for the captured snapshot.
 
-### Test strategy
+### Regression coverage
 
-No hardware is needed. Use multi-threaded tests where one thread dispatches thousands of synthetic events while another repeatedly registers/removes callbacks. Include self-removal and callback-added-during-callback cases.
+- callback removes itself
+- current snapshot still completes
+- removed callback is absent next dispatch
+- callback adds another callback
+- newly added callback starts next dispatch
+
+**Hardware:** not required.
 
 ---
 
-## 4. Runtime configuration changes have no transaction/rollback semantics
+## 4. Generic live configuration had no rollback semantics — FIXED AS A SAFETY BUG; TRANSACTIONAL LIVE UPDATE REMAINS TODO
 
-**Area:** dynamic ROSpec/configuration transitions  
-**Severity:** High for future dynamic-management work  
-**Status:** Architectural correctness gap  
-**Physical reader required to implement:** **No**  
-**Physical reader recommended for final validation:** **Yes**
-
-### Problem
-
-A meaningful live configuration change can require multiple protocol operations. If step 3 of 5 fails, there is currently no general transaction object that knows the previous known-good state and how to restore it.
-
-Example:
+### Previous unsafe shape
 
 ```text
-OLD working state
+old working state
       |
-      v
-[1] stop inventory             OK
+ stop inventory     OK
       |
-      v
-[2] delete old ROSpec          OK
+ delete ROSpec      OK
       |
-      v
-[3] add new ROSpec             FAIL
+ add new ROSpec     FAIL
       |
       X
 
-What now?
-
-- old ROSpec is gone
-- new ROSpec was not accepted
-- self.config may already contain new values
-- application may not know what is actually active
+Possible result:
+  self.config = NEW
+  reader state = neither clearly OLD nor NEW
 ```
 
-### Desired behavior
+There was no general transaction object capable of rolling back every multi-step live configuration change.
+
+### Current mitigation
+
+The generic `update_config()` path no longer attempts such a transition while connected. It rejects the operation before mutating state:
 
 ```text
-+-----------------------+
-| capture known-good    |
-| applied state         |
-+-----------------------+
-            |
-            v
-+-----------------------+
-| execute transition    |
-+-----------------------+
-            |
-      +-----+-----+
-      |           |
-   success      failure
-      |           |
-      v           v
- commit new   rollback old
- state        state if safe
-                  |
-             rollback fails
-                  |
-                  v
+connected + generic update
+          |
+          v
++---------------------------+
+| reject before mutation    |
++---------------------------+
+          |
+          v
+known old state remains valid
+```
+
+This removes the correctness bug without pretending a partial transaction implementation is safe.
+
+### Remaining enhancement
+
+A future live configuration engine should explicitly model:
+
+```text
+capture old applied state
+          |
+          v
+validate + diff
+          |
+          v
+apply ordered transition
+      /         \
+ success       failure
+   |             |
+ commit       rollback
+                 |
+          rollback fails
+                 |
+                 v
           clean disconnect
 ```
 
-A clean disconnect is preferable to silently continuing in an unknown reader state.
+That work is in `TODO.md` and requires a larger failure-injection/state-transition design.
 
-### Acceptance criteria
-
-- The transition remembers the previous known-good applied configuration.
-- No new desired configuration is reported as applied until all required steps succeed.
-- Failure at every intermediate step has a defined recovery path.
-- Rollback failures result in a clear disconnected/failed state rather than an ambiguous inventory state.
-- Deferreds/callbacks receive exactly one terminal outcome for the operation.
-
-### Test strategy
-
-No hardware is required to implement this. A fake reader should be able to reject each protocol step in turn. The test asserts final client state, pending deferreds, active ROSpec and whether reconnect/disconnect was requested.
+**Hardware:** not required for the current safety fix; recommended for future live-update interoperability testing.
 
 ---
 
-## 5. Reader configuration parsing is currently effectively a no-op
+## 5. `parseReaderConfig()` provided no normalized applied state — FIXED
 
-**Area:** `LLRPClient.parseReaderConfig()`  
-**Severity:** Medium  
-**Status:** Confirmed implementation gap  
-**Physical reader required to implement:** **No**, provided fixtures/captured frames exist
-
-### Problem
-
-The client keeps separate `reader_config` state, but `parseReaderConfig()` currently does not normalize useful reader-side configuration into that state.
-
-That makes it difficult to answer the important distinction:
+### Previous behavior
 
 ```text
-+-------------------+        +-------------------+
-| desired config    |        | actual reader     |
-| requested by app  |        | accepted config   |
-+-------------------+        +-------------------+
-          |                            |
-          +---------- ??? -------------+
+GET_READER_CONFIG_RESPONSE
+          |
+          v
+raw reader_config stored
+          |
+          v
+parseReaderConfig()
+          |
+          X  no normalized result
 ```
 
-For robust dynamic management, Sllurp should know both what the application wants and what the reader actually reported.
+### Current behavior
 
-### Desired model
+The raw decoded response is preserved for compatibility and a second normalized view is maintained in `reader_config_summary`:
 
 ```text
-Application requested config
+GET_READER_CONFIG_RESPONSE
           |
-          v
-+-------------------+
-| desired_config    |
-+-------------------+
-
-Reader GET_CONFIG response
-          |
-          v
-+-------------------+
-| parseReaderConfig |
-+-------------------+
-          |
-          v
-+-------------------+
-| applied/reported  |
-| reader_config     |
-+-------------------+
+          +------------------------+
+          |                        |
+          v                        v
++-------------------+    +-------------------------+
+| raw reader_config |    | parseReaderConfig()     |
+| unchanged         |    +-------------------------+
++-------------------+                 |
+                                      v
+                           +-------------------------+
+                           | reader_config_summary   |
+                           | standard useful fields  |
+                           +-------------------------+
 ```
 
-### Acceptance criteria
+Currently normalized where present:
 
-- Useful standard LLRP reader configuration is normalized into `reader_config` without conflating it with client desired state.
-- Missing optional parameters remain explicitly absent/unknown rather than being invented.
-- Captured responses from different vendors can be parsed without vendor-specific assumptions leaking into generic fields.
-- The normalized state is sufficient for later dynamic-config verification where the standard provides the necessary data.
+- antenna connected/gain state by antenna ID
+- antenna configuration by antenna ID
+- keepalive configuration
+- reader-event notification configuration
+- access-report configuration
+- events/reports configuration
+- GPI state list
+- GPO state/write list
 
-### Test strategy
+Missing optional fields stay absent; defaults are not invented. The historical method return contract remains `None`, so existing callers are not forced to change.
 
-Use recorded/synthetic `GET_READER_CONFIG_RESPONSE` fixtures. Physical hardware is only needed later to broaden the fixture set and validate vendor quirks.
+### Regression coverage
+
+- raw reader configuration remains available
+- normalized antenna properties/configuration
+- normalized keepalive/GPI data
+- non-dictionary input is rejected clearly
+- historical `None` return behavior is preserved
+
+**Hardware:** not required for implementation. Captured real-reader responses can expand the fixture corpus later.
 
 ---
 
-# Hardware validation policy
-
-The following separation should be maintained:
+# Validation layers
 
 ```text
                     SOFTWARE VALIDATION
@@ -435,14 +344,14 @@ The following separation should be maintained:
          +-----------------+-----------------+
          |                                   |
          v                                   v
- unit/state-machine tests              protocol fixtures
+ state-machine/unit tests              protocol fixtures
  fake transport                        synthetic frames
- failure injection                     concurrency tests
+ timer tests                           callback mutation tests
          |                                   |
          +-----------------+-----------------+
                            |
                            v
-                       CI GREEN
+                        CI GREEN
                            |
                            v
                   HARDWARE VALIDATION
@@ -452,10 +361,6 @@ The following separation should be maintained:
         v                  v                  v
      Zebra              Impinj          Honeywell/
                                         Intermec
-        |
-        v
- firmware timing, rejection codes, reconnect behavior,
- secure LLRP/TLS, vendor quirks, real inventory transitions
 ```
 
-Physical RFID readers should therefore **not block implementation** of these bugs. They are required only for the final interoperability confidence layer where behavior depends on actual firmware timing, vendor-specific rejection codes, reconnect timing, RF inventory state or model-specific configuration behavior.
+Hardware validation should focus on firmware timing, rejection codes, reconnect behavior, secure LLRP/TLS and vendor quirks. Basic Python validation, timer ownership, config atomicity and callback dispatch belong in CI.
