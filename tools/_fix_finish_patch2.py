@@ -8,7 +8,11 @@ needle = '''replace_method(
     "stopAllROSpecs",
     '''
 idx = text.index(needle)
-end = text.index("\n\n# Record which desired config", idx)
+end = text.index('''
+
+replace_method(
+    "pause",
+''', idx)
 block = text[idx:end]
 block = block.replace(
     '''        return None
