@@ -2,39 +2,73 @@
 
 import logging
 import pprint
-import time
+from threading import RLock
 
 from sllurp.util import monotonic, split_host_port
 from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRPReaderState
 from sllurp.log import get_logger
-from sllurp.log import is_general_debug_enabled, set_general_debug
 
 start_time = None
-
 numtags = 0
 logger = get_logger(__name__)
 
+_stats_lock = RLock()
+_reader_start_times = {}
+_reader_tag_counts = {}
+
+
+def _reader_key(reader):
+    return None if reader is None else id(reader)
+
+
+def _reset_stats():
+    global start_time, numtags
+    with _stats_lock:
+        start_time = None
+        numtags = 0
+        _reader_start_times.clear()
+        _reader_tag_counts.clear()
+
 
 def finish_cb(reader):
-    runtime = monotonic() - start_time
-    logger.info("total # of tags seen: %d (%d tags/second)", numtags, numtags / runtime)
+    now = monotonic()
+    key = _reader_key(reader)
+    with _stats_lock:
+        started = _reader_start_times.pop(key, start_time)
+        count = _reader_tag_counts.pop(
+            key, numtags if reader is None else 0
+        )
+
+    runtime = max(0.0, now - started) if started is not None else 0.0
+    rate = count / runtime if runtime > 0 else 0.0
+    logger.info("total # of tags seen: %d (%.1f tags/second)", count, rate)
 
 
 def inventory_start_cb(reader, state):
     global start_time
-    start_time = monotonic()
+    now = monotonic()
+    key = _reader_key(reader)
+    with _stats_lock:
+        start_time = now
+        _reader_start_times[key] = now
+        _reader_tag_counts.setdefault(key, 0)
 
 
 def tag_report_cb(reader, tags):
     """Function to run each time the reader reports seeing tags."""
     global numtags
-    if len(tags):
-        logger.info("saw tag(s): %s", pprint.pformat(tags))
-        for tag in tags:
-            numtags += tag["TagSeenCount"]
-    else:
+    if not tags:
         logger.info("no tags seen")
         return
+
+    if logger.isEnabledFor(logging.INFO):
+        logger.info("saw tag(s): %s", pprint.pformat(tags))
+
+    count = sum(int(tag.get("TagSeenCount", 1)) for tag in tags)
+    key = _reader_key(reader)
+    with _stats_lock:
+        numtags += count
+        _reader_tag_counts[key] = _reader_tag_counts.get(key, 0) + count
 
 
 def main(args):
@@ -43,6 +77,8 @@ def main(args):
     if not args.host:
         logger.info("No readers specified.")
         return 0
+
+    _reset_stats()
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
     frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
@@ -119,7 +155,9 @@ def main(args):
         )
         reader_clients.append(reader)
 
-    start_time = monotonic()
+    with _stats_lock:
+        start_time = monotonic()
+
     try:
         for reader in reader_clients:
             reader.connect()
@@ -135,19 +173,17 @@ def main(args):
     while True:
         try:
             # Join all threads using a timeout so it doesn't block
-            # Filter out threads which have been joined or are None
             alive_readers = [reader for reader in reader_clients if reader.is_alive()]
             if not alive_readers:
                 break
             for reader in alive_readers:
                 reader.join(1)
         except (KeyboardInterrupt, SystemExit):
-            # catch ctrl-C and stop inventory before disconnecting
             logger.info("Exit detected! Stopping readers...")
             for reader in reader_clients:
                 try:
                     reader.disconnect()
-                except:
+                except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
             break
 

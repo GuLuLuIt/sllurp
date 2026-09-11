@@ -9,6 +9,7 @@ report. Suppressed sightings do not extend the interval.
 
 from __future__ import annotations
 
+import math
 import time
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping
@@ -20,12 +21,22 @@ TagKey = Callable[[Mapping[str, Any]], Any]
 TagCallback = Callable[[Any, list[Mapping[str, Any]]], None]
 
 
+def _stable_sort_key(value: Any) -> tuple[str, str]:
+    return type(value).__name__, repr(value)
+
+
 def _freeze(value: Any) -> Any:
     """Convert common decoded LLRP values into a stable hashable value."""
     if isinstance(value, Mapping):
-        return tuple(sorted((key, _freeze(item)) for key, item in value.items()))
+        items = [(_freeze(key), _freeze(item)) for key, item in value.items()]
+        return tuple(sorted(items, key=lambda pair: _stable_sort_key(pair[0])))
     if isinstance(value, (list, tuple)):
         return tuple(_freeze(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return (
+            "set",
+            tuple(sorted((_freeze(item) for item in value), key=_stable_sort_key)),
+        )
     if isinstance(value, (bytearray, memoryview)):
         return bytes(value)
     try:
@@ -74,16 +85,21 @@ class TagReportDeduplicator:
         emit_empty: bool = False,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if window_seconds < 0:
-            raise ValueError("window_seconds cannot be negative")
-        if max_entries <= 0:
-            raise ValueError("max_entries must be greater than zero")
+        window_seconds = float(window_seconds)
+        if not math.isfinite(window_seconds) or window_seconds < 0:
+            raise ValueError("window_seconds must be a finite non-negative number")
+        if (
+            isinstance(max_entries, bool)
+            or not isinstance(max_entries, int)
+            or max_entries <= 0
+        ):
+            raise ValueError("max_entries must be a positive integer")
 
         self.callback = callback
-        self.window_seconds = float(window_seconds)
+        self.window_seconds = window_seconds
         self.include_antenna = bool(include_antenna)
         self.key = key
-        self.max_entries = int(max_entries)
+        self.max_entries = max_entries
         self.emit_empty = bool(emit_empty)
         self.clock = clock
         self._seen: dict[Any, float] = {}
@@ -93,11 +109,13 @@ class TagReportDeduplicator:
 
     @property
     def entry_count(self) -> int:
-        return len(self._seen)
+        with self._lock:
+            return len(self._seen)
 
     @property
     def evictions(self) -> int:
-        return self._evictions
+        with self._lock:
+            return self._evictions
 
     def reset(self) -> None:
         """Forget all previously seen tags and reset eviction statistics."""
@@ -130,12 +148,15 @@ class TagReportDeduplicator:
         if self.window_seconds == 0:
             return reports
 
+        # Custom key functions are application code and can be expensive.
+        # Evaluate them outside the state lock so multiple reader threads do
+        # not serialize while computing identities.
+        keyed_reports = [(tag, self._tag_key(tag)) for tag in reports]
         now = self.clock()
         unique: list[Mapping[str, Any]] = []
         with self._lock:
             self._purge_expired(now)
-            for tag in reports:
-                key = self._tag_key(tag)
+            for tag, key in keyed_reports:
                 expiry = self._seen.get(key)
                 if expiry is not None and now < expiry:
                     continue

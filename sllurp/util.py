@@ -1,7 +1,10 @@
 from bisect import bisect_right
-from inspect import stack
 import re
+import sys
 from time import monotonic
+
+
+_NATURAL_SPLIT_RE = re.compile(r"([0-9]+)")
 
 
 def BIT(n):
@@ -9,12 +12,12 @@ def BIT(n):
 
 
 def BITMASK(n):
-    return (1 << (n)) - 1
+    return (1 << n) - 1
 
 
 def func():
-    "Return the current function's name."
-    return stack()[1][3]
+    """Return the caller's function name without building an inspect stack."""
+    return sys._getframe(1).f_code.co_name
 
 
 def reverse_dict(data):
@@ -26,13 +29,14 @@ def atoi(text):
 
 
 def natural_keys(text):
-    """Sort alphanumerics in a "natural" order
+    """Sort alphanumerics in a "natural" order.
+
     Source: https://stackoverflow.com/questions/5967500/
 
     >>> sorted(['foo25', 'foo3'], key=natural_keys)
     ['foo3', 'foo25']
     """
-    return [atoi(c) for c in re.split("([0-9]+)", text)]
+    return [atoi(c) for c in _NATURAL_SPLIT_RE.split(text)]
 
 
 def split_host_port(value, default_port):
@@ -58,6 +62,14 @@ def split_host_port(value, default_port):
         if host and port:
             return host, int(port)
     return value, default_port
+
+
+def format_host_port(host, port):
+    """Format a host/port pair without making IPv6 addresses ambiguous."""
+    host = str(host)
+    if ":" in host and not (host.startswith("[") and host.endswith("]")):
+        host = f"[{host}]"
+    return f"{host}:{port}"
 
 
 def find_closest(table, target):
