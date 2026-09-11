@@ -22,7 +22,7 @@ from sllurp.llrp import (
     LLRPReaderState,
 )
 from sllurp.llrp_errors import ReaderConfigurationError
-from sllurp.llrp_proto import LLRPError
+from sllurp.llrp_proto import LLRPError, Message_struct, msg_header_encode
 
 
 def client_config(**overrides):
@@ -31,15 +31,21 @@ def client_config(**overrides):
     return LLRPReaderConfig(values)
 
 
-def test_llrp_message_keepalive_round_trip():
-    encoded = LLRPMessage(msgdict={"KEEPALIVE": {"Ver": 1, "ID": 99}})
-    decoded = LLRPMessage(msgbytes=encoded.msgbytes)
+def test_llrp_message_receive_decode_and_send_encode_paths():
+    keepalive = msg_header_encode(
+        Message_struct["KEEPALIVE"]["type"], 1, 0, 99
+    )
+    decoded = LLRPMessage(msgbytes=keepalive)
+    encoded = LLRPMessage(
+        msgdict={"ENABLE_EVENTS_AND_REPORTS": {"Ver": 1, "ID": 99}}
+    )
 
-    assert encoded.getName() == "KEEPALIVE"
     assert decoded.getName() == "KEEPALIVE"
     assert decoded.msgdict["KEEPALIVE"]["ID"] == 99
     assert decoded.msgdict["KEEPALIVE"]["Ver"] == 1
     assert "KEEPALIVE" in repr(decoded)
+    assert encoded.getName() == "ENABLE_EVENTS_AND_REPORTS"
+    assert encoded.msgbytes
 
 
 def test_llrp_message_requires_input_and_rejects_unknown_types():
@@ -244,12 +250,12 @@ def test_send_message_assigns_and_rolls_over_message_ids():
     writes = []
     client = LLRPClient(client_config(), transport_tx_write=writes.append)
     client.last_msg_id = LLRP_MSG_ID_MAX
-    payload = {"KEEPALIVE": {}}
+    payload = {"ENABLE_EVENTS_AND_REPORTS": {}}
 
     sent = client.sendMessage(payload)
 
-    assert sent == [("KEEPALIVE", 1)]
-    assert payload["KEEPALIVE"]["ID"] == 1
+    assert sent == [("ENABLE_EVENTS_AND_REPORTS", 1)]
+    assert payload["ENABLE_EVENTS_AND_REPORTS"]["ID"] == 1
     assert writes and isinstance(writes[0], bytes)
 
 
@@ -307,7 +313,9 @@ def test_reader_client_callback_registration_and_clearing():
     reader.clear_disconnected_callback(disconnected_cb)
 
     assert reader._llrp_state_callbacks[LLRPReaderState.STATE_CONNECTED] == []
-    assert not reader._llrp_message_callbacks
+    assert "KEEPALIVE" not in reader._llrp_message_callbacks
+    assert len(reader._llrp_message_callbacks["RO_ACCESS_REPORT"]) == 1
+    assert len(reader._llrp_message_callbacks["READER_EVENT_NOTIFICATION"]) == 1
     assert reader._tag_report_callbacks == []
     assert reader._event_notification_callbacks == []
     assert reader._disconnected_callbacks == []
