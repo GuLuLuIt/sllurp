@@ -1,29 +1,27 @@
 # Sllurp FastAPI RFID reader demo
 
-This example exposes a small FastAPI/WebSocket application around an LLRP reader and a simple browser UI. It is an application example, not the recommended starting point for first-time Sllurp setup.
+This example exposes a small FastAPI/WebSocket application around an LLRP reader and serves a same-origin browser UI. It is an application example, not the recommended starting point for first-time Sllurp setup.
 
 Start with the repository [Quick Start](../../QUICKSTART.md) and confirm normal inventory works before running a web framework around the reader.
 
 ## What it demonstrates
 
 - connect to an LLRP reader from an application lifecycle
-- start and stop inventory
+- start and stop inventory through HTTP endpoints
 - receive tag callbacks
-- expose reader/tag state through HTTP endpoints
+- expose reader/tag state through HTTP
 - push tag updates to a browser over WebSockets
+- configure reader/web addresses with environment variables instead of editing source
 
 ## Requirements
 
-- Sllurp supports Python 3.10 or newer
-- the included `uv.lock` / example `pyproject.toml` currently target Python 3.13 or newer
-- FastAPI
-- Uvicorn
-- Pydantic
-- WebSocket support
+- Python 3.10 or newer
+- Sllurp installed from this repository
+- dependencies in `requirements.txt`
 
-If you use the pip/requirements setup below rather than the included `uv` lock, use dependency versions compatible with your selected supported Python version.
+The example deliberately does **not** list `sllurp` in `requirements.txt`; install the repository itself first so the example cannot accidentally pull the upstream PyPI distribution.
 
-## Setup with pip
+## Setup
 
 From the repository root:
 
@@ -34,7 +32,7 @@ python -m pip install -e .
 python -m pip install -r examples/fastapi/requirements.txt
 ```
 
-On Windows PowerShell use:
+On Windows PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -43,36 +41,47 @@ python -m pip install -e .
 python -m pip install -r examples\fastapi\requirements.txt
 ```
 
-Before running, edit `READER_IP` in `app.py` or adapt the example to read the address from your application configuration.
+## Configure
+
+Set the reader address before starting the demo:
+
+```bash
+export SLLURP_READER_HOST=192.168.1.50
+export SLLURP_READER_PORT=5084
+```
+
+PowerShell:
+
+```powershell
+$env:SLLURP_READER_HOST = "192.168.1.50"
+$env:SLLURP_READER_PORT = "5084"
+```
+
+Optional web listener settings are `SLLURP_WEB_HOST` (default `127.0.0.1`) and `SLLURP_WEB_PORT` (default `4000`).
 
 ## Run
 
-```bash
-cd examples/fastapi
-python app.py
-```
-
-Or with `uv` and Python 3.13+:
+From the repository root:
 
 ```bash
-cd examples/fastapi
-uv run app.py
+python examples/fastapi/app.py
 ```
 
-Open `index.html` in a browser to use the simple test UI.
+Then open <http://127.0.0.1:4000/>. The application serves `index.html` itself, so the browser UI, HTTP calls, and WebSocket all use the same origin.
 
 ## Endpoints
 
-- `GET /start` — start inventory
-- `GET /stop` — stop inventory
+- `POST /start` — start inventory
+- `POST /stop` — stop inventory
+- `POST /start-stop` — inventory for one second
 - `GET /last-read` — return the latest tag set
 - `GET /status` — report connection status
 - `GET /state` — report the Sllurp protocol state
-- `GET /clear` — clear stored tag data
+- `POST /clear` — clear stored tag data
 - `WS /ws` — stream tag updates
 
 ## Production notes
 
-The demo intentionally keeps application structure simple. Before production use, configure reader address/credentials outside source code, restrict CORS, add authentication/authorization, validate WebSocket clients, and define your own reconnect/error policy.
+The demo intentionally keeps application structure small. Before production use, add authentication/authorization, restrict network exposure, validate WebSocket clients, move secrets into a proper secret/configuration system, and define your own reconnect/error policy.
 
 For smaller feature-specific examples, see [`../README.md`](../README.md).

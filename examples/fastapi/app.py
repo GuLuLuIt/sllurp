@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-#
-# app.py - Example of using Sllurp with FastAPI
-#
+"""Small FastAPI/WebSocket demo around a Sllurp LLRP reader."""
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
-from queue import Queue
+import os
+from contextlib import asynccontextmanager, suppress
+from pathlib import Path
+from queue import Empty, Queue
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
@@ -20,140 +20,114 @@ from sllurp.llrp import (
     LLRPReaderState,
 )
 
+logger = logging.getLogger("sllurp.fastapi_demo")
 
-# Pydantic model for RFID tag data
+
 class RFIDTag(BaseModel):
-    epc: str  # ascii representation of EPC
-    channel: int  # RF channel index
-    last_seen: int  # Timestamp of last detection
-    seen_count: int  # Number of times the tag was seen
+    epc: str
+    channel: int
+    last_seen: int
+    seen_count: int
 
 
-# RFID Reader Configuration
-READER_IP = "localhost"  # Ensure correct IP
-PORT = LLRP_DEFAULT_PORT
+READER_HOST = os.getenv("SLLURP_READER_HOST", "localhost")
+READER_PORT = int(os.getenv("SLLURP_READER_PORT", str(LLRP_DEFAULT_PORT)))
+WEB_HOST = os.getenv("SLLURP_WEB_HOST", "127.0.0.1")
+WEB_PORT = int(os.getenv("SLLURP_WEB_PORT", "4000"))
+INDEX_PATH = Path(__file__).with_name("index.html")
 
-
-# Store the reader and tag data
 READER: LLRPReaderClient | None = None
 TAG_DATA: list[RFIDTag] = []
-TAG_QUEUE = Queue()
-ACTIVE_CONNECTIONS = []
+TAG_QUEUE: Queue = Queue()
+ACTIVE_CONNECTIONS: set[WebSocket] = set()
 
 
 async def process_queue():
     while True:
-        # Check queue in a loop
-        if not TAG_QUEUE.empty():
-            tags = TAG_QUEUE.get()
-            logging.info(f"Processing tags from queue: {tags}")
-            # Send to all websocket connections
-            for connection in ACTIVE_CONNECTIONS[:]:
-                try:
-                    await connection.send_json({"tags": tags})
-                    logging.info("Sent tags to websocket connection")
-                except Exception as e:
-                    logging.error(f"Error sending to websocket: {e}")
-                    ACTIVE_CONNECTIONS.remove(connection)
-        await asyncio.sleep(0.1)  # Small delay to prevent CPU hogging
+        try:
+            tags = TAG_QUEUE.get_nowait()
+        except Empty:
+            await asyncio.sleep(0.1)
+            continue
+
+        stale_connections = []
+        for connection in tuple(ACTIVE_CONNECTIONS):
+            try:
+                await connection.send_json({"tags": tags})
+            except Exception:
+                logger.exception("Error sending tags to WebSocket client")
+                stale_connections.append(connection)
+        for connection in stale_connections:
+            ACTIVE_CONNECTIONS.discard(connection)
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI):
-    # Startup: Initialize the reader
+async def lifespan(_application: FastAPI):
     global READER
-    try:
-        config = LLRPReaderConfig()
-        config.reset_on_connect = True
-        config.start_inventory = False
-        # config.report_every_n_tags = 1
-
-        # Enable GPI event listener
-        # This will trigger the start of inventory when the GPI port 1 is High
-        # and stop the inventory when the GPI port 1 is Low
-        config.event_selector = {
-            "GPIEvent": True,
+    config = LLRPReaderConfig(
+        {
+            "reset_on_connect": True,
+            "start_inventory": False,
+            "event_selector": {"GPIEvent": True},
         }
+    )
+    READER = LLRPReaderClient(READER_HOST, READER_PORT, config)
+    READER.add_tag_report_callback(tag_report_cb)
+    READER.add_event_callback(handle_event)
+    READER.connect()
+    logger.info("Connected to RFID reader %s:%s", READER_HOST, READER_PORT)
 
-        READER = LLRPReaderClient(READER_IP, PORT, config)
-        READER.add_tag_report_callback(tag_report_cb)
-        READER.add_event_callback(handle_event)
-        READER.connect()
-        logging.info("RFID Reader initialized during startup")
-
-        task = asyncio.create_task(process_queue())
+    task = asyncio.create_task(process_queue())
+    try:
         yield
-        task.cancel()
     finally:
-        # Shutdown: Clean up the reader
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
         if READER and READER.is_alive():
             try:
                 READER.llrp.stopPolitely()
                 READER.disconnect()
-                logging.info("RFID Reader disconnected during shutdown")
-            except Exception as e:
-                logging.error(f"Error during reader shutdown: {e}")
+            except Exception:
+                logger.exception("Error during reader shutdown")
 
 
 app = FastAPI(lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all domains (change to specific origin for security)
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers
-)
-
-# Enable logging
-logging.basicConfig(level=logging.DEBUG)
-sllurp_logger = logging.getLogger("sllurp")
-sllurp_logger.setLevel(logging.DEBUG)
-sllurp_logger.addHandler(logging.StreamHandler())
+logging.basicConfig(level=logging.INFO)
 
 
-# Define a callback for tag data
+def _epc_text(value):
+    if isinstance(value, bytes):
+        return value.decode("ascii", errors="replace")
+    return str(value)
+
+
 def tag_report_cb(_reader, tag_reports):
-    """Callback to process tag data"""
     global TAG_DATA
     TAG_DATA = [
         RFIDTag(
-            epc=tag["EPC"].decode("ascii"),
-            channel=tag["ChannelIndex"],
-            last_seen=tag["LastSeenTimestampUTC"],
-            seen_count=tag["TagSeenCount"],
+            epc=_epc_text(tag.get("EPC", "")),
+            channel=int(tag.get("ChannelIndex", 0)),
+            last_seen=int(tag.get("LastSeenTimestampUTC", 0)),
+            seen_count=int(tag.get("TagSeenCount", 0)),
         )
         for tag in tag_reports
     ]
-    serializable_tags = [tag.model_dump() for tag in TAG_DATA]
-    TAG_QUEUE.put(serializable_tags)
-    logging.info(f"Received {len(tag_reports)} tags")
+    TAG_QUEUE.put([tag.model_dump() for tag in TAG_DATA])
+    logger.info("Received %d tag reports", len(tag_reports))
 
 
-# Define callback for events
 def handle_event(_reader, event):
-    if "GPIEvent" in event:
-        gpi_event = event.get("GPIEvent")
-        logging.info(f"GPI Event: {gpi_event}")
-
-        if gpi_event and gpi_event.get("GPIPortNumber") == 1:
-            if gpi_event.get("GPIEvent"):
-                if READER and READER.is_alive():
-                    logging.info("Starting inventory via GPI")
-                    start_reading()
-            else:
-                logging.info("Stopping inventory")
-                stop_reading()
-
-    if "ConnectionAttemptEvent" in event:
-        connection_event = event["ConnectionAttemptEvent"]
-        logging.info(f"Connection Event: {connection_event}")
-    else:
-        logging.info(f"Other Event: {event}")
+    gpi_event = event.get("GPIEvent")
+    if gpi_event and gpi_event.get("GPIPortNumber") == 1:
+        if gpi_event.get("GPIEvent"):
+            start_reading()
+        else:
+            stop_reading()
+    logger.debug("Reader event: %s", event)
 
 
 def clear_tag_data():
-    """Clear stored tag data"""
     global TAG_DATA
     TAG_DATA = []
 
@@ -162,74 +136,76 @@ def start_reading():
     if READER and READER.is_alive():
         clear_tag_data()
         READER.llrp.startInventory()
-        return
+        return True
+    return False
 
 
 def stop_reading():
     if READER and READER.is_alive():
         READER.llrp.stopPolitely()
-        return
+        return True
+    return False
+
+
+@app.get("/", include_in_schema=False)
+async def index():
+    return FileResponse(INDEX_PATH)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    logging.info("New WebSocket connection attempt")
-
     await websocket.accept()
-    logging.info("WebSocket connection accepted")
-    ACTIVE_CONNECTIONS.append(websocket)
+    ACTIVE_CONNECTIONS.add(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Keep connection alive
+            await websocket.receive_text()
     except WebSocketDisconnect:
-        logging.info("WebSocket disconnected")
-        ACTIVE_CONNECTIONS.remove(websocket)
-    except Exception as e:
-        logging.error(f"WebSocket error: {e}")
-        if websocket in ACTIVE_CONNECTIONS:
-            ACTIVE_CONNECTIONS.remove(websocket)
+        pass
+    finally:
+        ACTIVE_CONNECTIONS.discard(websocket)
 
 
-@app.get("/start")
+@app.post("/start")
 async def start():
-    start_reading()
-    return {"message": "Reading started"}
+    return {"started": start_reading()}
 
 
-@app.get("/stop")
+@app.post("/stop")
 async def stop():
-    stop_reading()
-    return {"message": "Reading stopped"}
+    return {"stopped": stop_reading()}
 
 
-@app.get("/start-stop")
+@app.post("/start-stop")
 async def start_stop():
-    start_reading()
-    await asyncio.sleep(1)
-    stop_reading()
+    started = start_reading()
+    if started:
+        await asyncio.sleep(1)
+    stopped = stop_reading()
+    return {"started": started, "stopped": stopped}
 
 
 @app.get("/last-read")
 async def get_tags():
-    return {"tags": TAG_DATA}
+    return {"tags": [tag.model_dump() for tag in TAG_DATA]}
 
 
 @app.get("/status")
 async def status():
-    return {"status": READER.is_alive()}
+    return {"connected": bool(READER and READER.is_alive())}
 
 
 @app.get("/state")
-async def is_reading():
+async def state():
+    if READER is None:
+        return {"state": "not-initialized", "code": None}
     return {
         "state": LLRPReaderState.getStateName(READER.llrp.state),
         "code": READER.llrp.state,
     }
 
 
-@app.get("/clear")
+@app.post("/clear")
 async def clear():
-    """API: Clear stored tag data"""
     clear_tag_data()
     return {"message": "Tag data cleared"}
 
@@ -237,4 +213,4 @@ async def clear():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=4000)
+    uvicorn.run(app, host=WEB_HOST, port=WEB_PORT)
