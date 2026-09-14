@@ -1,6 +1,21 @@
 Secure LLRP (LLRP over TLS)
 ===========================
 
+Start here
+----------
+
+For installation on Windows, Linux distributions, and macOS, start with the
+`Quick Start <../QUICKSTART.md>`_.  For a fast Secure LLRP smoke test using the
+standard encrypted endpoint::
+
+    sllurp inventory --tls reader.example.com
+
+For a private CA::
+
+    sllurp inventory --tls --tls-ca-file reader-ca.pem reader.example.com
+
+The full documentation map is in `docs/index.rst <index.rst>`_.
+
 LLRP can run over TLS. IANA assigns TCP port 5084 to normal LLRP and TCP port
 5085 to encrypted LLRP. sllurp's TLS transport is reader-neutral: it can be used
 with any reader/firmware that exposes LLRP over TLS.
