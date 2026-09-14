@@ -14,14 +14,14 @@ Start with the repository [Quick Start](../../QUICKSTART.md) and confirm normal 
 
 ## Requirements
 
-- Python 3.10 or newer
-- Sllurp
+- Sllurp supports Python 3.10 or newer
+- the included `uv.lock` / example `pyproject.toml` currently target Python 3.13 or newer
 - FastAPI
 - Uvicorn
 - Pydantic
 - WebSocket support
 
-The example also includes `uv` project files for users who prefer `uv`.
+If you use the pip/requirements setup below rather than the included `uv` lock, use dependency versions compatible with your selected supported Python version.
 
 ## Setup with pip
 
@@ -52,7 +52,7 @@ cd examples/fastapi
 python app.py
 ```
 
-Or with `uv`:
+Or with `uv` and Python 3.13+:
 
 ```bash
 cd examples/fastapi
