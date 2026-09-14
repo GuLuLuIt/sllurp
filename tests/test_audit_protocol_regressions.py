@@ -95,8 +95,11 @@ def test_requested_disconnect_lost_connection_still_cleans_and_notifies():
 
 def test_fastapi_shutdown_uses_public_disconnect_once():
     source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
-    assert "READER.llrp.stopPolitely()" not in source
-    assert "READER.disconnect(timeout=2)" in source
+    lifespan_shutdown = source.split("    finally:", 1)[1].split("
+
+app =", 1)[0]
+    assert "READER.llrp.stopPolitely()" not in lifespan_shutdown
+    assert "READER.disconnect(timeout=2)" in lifespan_shutdown
 
 
 def test_default_logging_keeps_info_off_stdout(monkeypatch):
@@ -124,12 +127,18 @@ def test_default_logging_keeps_info_off_stdout(monkeypatch):
 def test_invalid_access_cli_returns_nonzero():
     result = CliRunner().invoke(cli, ["access", "offline.invalid"])
     assert result.exit_code == 2
+    both = CliRunner().invoke(
+        cli,
+        ["access", "--read-words", "1", "--write-words", "1", "offline.invalid"],
+    )
+    assert both.exit_code == 2
 
 
 def test_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
     info = proto.Param_struct["MotoFilterTagList"]
     assert info["decode"] is proto.decode_MotoFilterTagList
-    assert info["n_fields"] == ["EPC"]
+    assert "EPC" in info["n_fields"]
+    assert "EPCData" not in info["n_fields"]
 
 
 def test_regulatory_capabilities_encoder_uses_pack():

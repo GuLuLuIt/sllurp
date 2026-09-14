@@ -83,9 +83,12 @@ def main(main_args):
         logger.info("No readers specified.")
         return 0
 
-    if not args.read_words and not args.write_words:
-        logger.info("Error: Either --read-words or --write-words has to be" " chosen.")
-        return 0
+    if args.read_words is not None and args.write_words is not None:
+        logger.error("Choose only one of --read-words or --write-words.")
+        return 2
+    if args.read_words is None and args.write_words is None:
+        logger.info("Error: Either --read-words or --write-words has to be chosen.")
+        return 2
 
     enabled_antennas = [int(x.strip()) for x in args.antennas.split(",")]
     frequency_list = [int(x.strip()) for x in args.frequencies.split(",")]
