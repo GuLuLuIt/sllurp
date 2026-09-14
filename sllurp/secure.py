@@ -7,15 +7,12 @@ This module adds LLRP over TLS without changing the existing plain-TCP
 import select
 import ssl
 from socket import (
-    AF_INET,
-    AF_INET6,
     IPPROTO_TCP,
     SO_KEEPALIVE,
     SO_RCVBUF,
-    SOCK_STREAM,
     SOL_SOCKET,
     TCP_NODELAY,
-    socket,
+    create_connection,
 )
 from socket import (
     error as SocketError,
@@ -159,14 +156,14 @@ class LLRPTLSReaderClient(LLRPReaderClient):
 
         raw_socket = None
         try:
-            family = AF_INET6 if ":" in self._host else AF_INET
-            raw_socket = socket(family, SOCK_STREAM)
+            raw_socket = create_connection(
+                (self._host, self._port), timeout=self._socktimeout
+            )
             if self.config.socket_receive_buffer_bytes is not None:
                 raw_socket.setsockopt(
                     SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
                 )
             raw_socket.settimeout(self._socktimeout)
-            raw_socket.connect((self._host, self._port))
             raw_socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
             raw_socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
 

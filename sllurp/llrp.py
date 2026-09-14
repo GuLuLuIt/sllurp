@@ -4,16 +4,13 @@ import ssl
 from binascii import hexlify
 from collections import defaultdict
 from socket import (
-    AF_INET,
-    AF_INET6,
     IPPROTO_TCP,
     SHUT_RDWR,
     SO_KEEPALIVE,
     SO_RCVBUF,
-    SOCK_STREAM,
     SOL_SOCKET,
     TCP_NODELAY,
-    socket,
+    create_connection,
 )
 from socket import (
     error as SocketError,
@@ -2546,15 +2543,15 @@ class LLRPReaderClient:
 
         raw_socket = None
         try:
-            family = AF_INET6 if ":" in self._host else AF_INET
-            raw_socket = socket(family, SOCK_STREAM)
+            raw_socket = create_connection(
+                (self._host, self._port), timeout=self._socktimeout
+            )
             if self.config.socket_receive_buffer_bytes is not None:
                 raw_socket.setsockopt(
                     SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
                 )
             # Sllurp original timeout is 3s
             raw_socket.settimeout(self._socktimeout)
-            raw_socket.connect((self._host, self._port))
             raw_socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
             raw_socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
 
