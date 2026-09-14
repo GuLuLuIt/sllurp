@@ -3455,7 +3455,7 @@ def decode_ImpinjFrequencyCapabilities(data, name=None):
     }
 
     for x in range(0, par["NumFrequencies"]):
-        start_pos = ushort_size + x * ushort_size
+        start_pos = ushort_size + x * uint_size
         par["FrequencyList"].append(
             uint_unpack(data[start_pos : start_pos + uint_size])[0]
         )
