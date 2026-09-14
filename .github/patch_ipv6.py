@@ -4,6 +4,7 @@ for filename in ("sllurp/llrp.py", "sllurp/secure.py"):
     path = Path(filename)
     text = path.read_text()
     text = text.replace("    AF_INET,\n    AF_INET6,\n", "", 1)
+    text = text.replace("    SOCK_STREAM,\n", "", 1)
     if "    socket,\n" not in text:
         raise SystemExit(f"socket import target not found in {filename}")
     text = text.replace("    socket,\n", "    create_connection,\n", 1)
