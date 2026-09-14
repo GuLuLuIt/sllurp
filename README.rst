@@ -75,6 +75,24 @@ Impinj LLRP extensions          Search mode, reports, fixed-frequency controls
 Multi-reader CLI                Inventory more than one reader from one command
 ==============================  ==================================================
 
+Examples
+--------
+
+The `examples index <examples/README.md>`_ contains runnable, focused examples
+for the main features instead of forcing users to extract snippets from long
+documentation pages.
+
+* `Basic Python inventory <examples/basic_inventory.py>`_
+* `Timed deduplication <examples/dedup_inventory.py>`_
+* `RF telemetry <examples/rf_telemetry.py>`_
+* `Live runtime configuration <examples/runtime_config.py>`_
+* `Generic HTTP/HTTPS management <examples/reader_management_generic.py>`_
+* `Zebra management <examples/zebra_management.py>`_
+* `Impinj R700/R720 management <examples/impinj_management.py>`_
+* `Honeywell/Intermec DCWS <examples/intermec_management.py>`_
+* `CLI recipes for TLS, tag access, logging, multi-reader, and Impinj extensions <examples/cli-recipes.md>`_
+* `FastAPI demo <examples/fastapi/README.md>`_ and `Tornado demo <examples/tornado/README.md>`_
+
 Common examples
 ---------------
 
@@ -209,6 +227,7 @@ Documentation
 
 * `Quick Start <QUICKSTART.md>`_ — installation and first use
 * `Documentation index <docs/index.rst>`_ — feature and CLI map
+* `Example guide <docs/examples.rst>`_ — runnable examples by feature
 * `Reader compatibility <docs/readers.rst>`_
 * `Secure LLRP <docs/secure_llrp.rst>`_
 * `Reader management and deduplication <docs/reader-management.rst>`_
@@ -269,7 +288,7 @@ Python 3.10 through 3.14 are supported by the current project metadata.
 License
 -------
 
-Sllurp is distributed under GPL-3.0. See ``LICENSE.txt``.
+Sllurp is distributed under GPL-3.0-only. See ``LICENSE.txt``.
 
 Issues
 ------
