@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sllurp"
 dynamic = ["version"]
-description = "RFID reader control library"
+description = "Production-focused Python client and toolkit for LLRP RFID readers"
 readme = "README.rst"
 license = "GPL-3.0-only"
 requires-python = ">=3.10"
@@ -13,9 +13,9 @@ authors = [
     { name = "Ben Ransford", email = "ben@ransford.org" },
 ]
 maintainers = [
-    { name = "Florent Viard" },
+    { name = "GuLuLuIt" },
 ]
-keywords = ["llrp", "rfid", "reader"]
+keywords = ["llrp", "rfid", "reader", "uhf", "epc", "inventory"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -38,6 +38,16 @@ test = [
     "pytest-cov",
     "hypothesis",
 ]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "hypothesis",
+    "ruff",
+    "bandit",
+    "codespell",
+    "build",
+    "twine",
+]
 
 [project.scripts]
 sllurp = "sllurp.cli:cli"
@@ -46,7 +56,12 @@ sllurp = "sllurp.cli:cli"
 Homepage = "https://github.com/GuLuLuIt/sllurp"
 Repository = "https://github.com/GuLuLuIt/sllurp"
 Documentation = "https://github.com/GuLuLuIt/sllurp/blob/main/QUICKSTART.md"
-Issues = "https://github.com/GuLuLuIt/sllurp/issues"
+Examples = "https://github.com/GuLuLuIt/sllurp/tree/main/examples"
+Changelog = "https://github.com/GuLuLuIt/sllurp/blob/main/CHANGELOG.md"
+Contributing = "https://github.com/GuLuLuIt/sllurp/blob/main/CONTRIBUTING.md"
+Security = "https://github.com/GuLuLuIt/sllurp/blob/main/SECURITY.md"
+Support = "https://github.com/GuLuLuIt/sllurp/blob/main/SUPPORT.md"
+Upstream = "https://github.com/sllurp/sllurp"
 
 [tool.setuptools.packages.find]
 include = ["sllurp*"]
