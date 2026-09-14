@@ -120,7 +120,7 @@ jobs:
       - name: Check dependency consistency
         run: python -m pip check
       - name: Import FastAPI example without reader hardware
-        run: python -c "import runpy; ns = runpy.run_path('examples/fastapi/app.py'); assert ns['app']; assert ns['INDEX_PATH'].is_file()"
+        run: python -c "import runpy; ns = runpy.run_path('examples/fastapi/app.py'); assert ns['app']; assert ns['INDEX_PATH'].is_file(); assert ns['TAG_QUEUE'].maxsize == 1"
 
   quality:
     runs-on: ubuntu-latest

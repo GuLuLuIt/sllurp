@@ -6,7 +6,7 @@ import logging
 import os
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -38,8 +38,23 @@ INDEX_PATH = Path(__file__).with_name("index.html")
 
 READER: LLRPReaderClient | None = None
 TAG_DATA: list[RFIDTag] = []
-TAG_QUEUE: Queue = Queue()
+# WebSocket clients only need the newest observation batch. Keeping a single
+# pending batch prevents a slow client from causing unbounded queue growth.
+TAG_QUEUE: Queue = Queue(maxsize=1)
 ACTIVE_CONNECTIONS: set[WebSocket] = set()
+
+
+def _publish_latest_tags(tags):
+    """Queue the newest tag batch, replacing an older unsent batch if needed."""
+    while True:
+        try:
+            TAG_QUEUE.put_nowait(tags)
+            return
+        except Full:
+            try:
+                TAG_QUEUE.get_nowait()
+            except Empty:
+                continue
 
 
 async def process_queue():
@@ -113,7 +128,7 @@ def tag_report_cb(_reader, tag_reports):
         )
         for tag in tag_reports
     ]
-    TAG_QUEUE.put([tag.model_dump() for tag in TAG_DATA])
+    _publish_latest_tags([tag.model_dump() for tag in TAG_DATA])
     logger.info("Received %d tag reports", len(tag_reports))
 
 
