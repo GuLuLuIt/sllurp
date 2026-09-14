@@ -3,6 +3,7 @@ import select
 import ssl
 from binascii import hexlify
 from collections import defaultdict
+from copy import deepcopy
 from socket import (
     AF_INET,
     AF_INET6,
@@ -464,17 +465,9 @@ class LLRPClient:
         """Return detached desired/generated/applied configuration state."""
         return {
             "desired": snapshot_config(self.desired_config),
-            "generated_rospec": (
-                None
-                if self.generated_config_snapshot is None
-                else dict(self.generated_config_snapshot)
-            ),
-            "applied": (
-                None
-                if self.applied_config_snapshot is None
-                else dict(self.applied_config_snapshot)
-            ),
-            "reported_reader": dict(self.reader_config_summary),
+            "generated_rospec": deepcopy(self.generated_config_snapshot),
+            "applied": deepcopy(self.applied_config_snapshot),
+            "reported_reader": deepcopy(self.reader_config_summary),
         }
 
     def _install_runtime_config(self, new_config):
@@ -556,23 +549,52 @@ class LLRPClient:
                 fail(f"{error}; rollback configuration failed: {rollback_error}")
                 return
 
-            if was_inventorying:
+            def finish_restore():
+                if was_inventorying:
+                    self.setState(LLRPReaderState.STATE_CONNECTED)
+
+                    def restored(state, is_success, *args):
+                        if not is_success:
+                            self.setState(LLRPReaderState.STATE_DISCONNECTED)
+                            fail(f"{error}; rollback inventory restart failed")
+                        else:
+                            fail(error)
+
+                    self.startInventory(force_regen_rospec=True, onCompletion=restored)
+                elif was_paused:
+                    self.setState(LLRPReaderState.STATE_PAUSED)
+                    fail(error)
+                else:
+                    self.setState(LLRPReaderState.STATE_CONNECTED)
+                    fail(error)
+
+            def after_rospec_cleanup(state, is_success, *args):
+                if not is_success:
+                    self.setState(LLRPReaderState.STATE_DISCONNECTED)
+                    fail(f"{error}; rollback ROSpec cleanup failed")
+                    return
+                finish_restore()
+
+            def cleanup_replacement_rospec():
+                if not was_inventorying:
+                    finish_restore()
+                    return
                 self.setState(LLRPReaderState.STATE_CONNECTED)
+                self.stopAllROSpecs(onCompletion=after_rospec_cleanup)
 
-                def restored(state, is_success, *args):
-                    if not is_success:
-                        self.setState(LLRPReaderState.STATE_DISCONNECTED)
-                        fail(f"{error}; rollback inventory restart failed")
-                    else:
-                        fail(error)
+            def old_reader_config_restored(state, is_success, *args):
+                if not is_success:
+                    self.setState(LLRPReaderState.STATE_DISCONNECTED)
+                    fail(f"{error}; rollback reader configuration failed")
+                    return
+                cleanup_replacement_rospec()
 
-                self.startInventory(force_regen_rospec=True, onCompletion=restored)
-            elif was_paused:
-                self.setState(LLRPReaderState.STATE_PAUSED)
-                fail(error)
+            if plan.requires_reader_config_write:
+                self.setState(LLRPReaderState.STATE_CONNECTED)
+                self._suppress_set_config_post_actions = True
+                self.send_SET_READER_CONFIG(onCompletion=old_reader_config_restored)
             else:
-                self.setState(LLRPReaderState.STATE_CONNECTED)
-                fail(error)
+                cleanup_replacement_rospec()
 
         def finish_new_state():
             if was_inventorying:
@@ -778,6 +800,10 @@ class LLRPClient:
         mode_list = regcap["UHFBandCapabilities"]["UHFC1G2RFModeTable"][
             "UHFC1G2RFModeTableEntry"
         ]
+
+        # Capability-derived mode state belongs to the current desired
+        # configuration. Clearing mode_identifier must not reuse an earlier mode.
+        self.reader_mode = None
 
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over modulation
@@ -1153,9 +1179,12 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.fatal("Error %s setting reader config: %s", status, err)
-                if self._suppress_set_config_post_actions:
+                suppress_post_actions = self._suppress_set_config_post_actions
+                if suppress_post_actions:
                     self._suppress_set_config_post_actions = False
                 self.processDeferreds(msgName, False)
+                if suppress_post_actions:
+                    return
                 raise ReaderConfigurationError("Error setting reader config")
 
             suppress_post_actions = self._suppress_set_config_post_actions
@@ -1194,9 +1223,9 @@ class LLRPClient:
             if not lmsg.isSuccess():
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
-                logger.fatal("Error %s adding ROSpec: %s", status, err)
+                logger.error("Error %s adding ROSpec: %s", status, err)
                 self.processDeferreds(msgName, False)
-                raise ReaderConfigurationError("Error adding ROSpec")
+                return
 
             self.processDeferreds(msgName, lmsg.isSuccess())
 
@@ -2698,6 +2727,7 @@ class LLRPReaderClient:
                 logger.debug("socket shutdown failed", exc_info=True)
             self._socket.close()
             self._socket = None
+        self._reset_protocol_session()
 
     @staticmethod
     def disconnect_all_readers(timeout_per_reader=1, force=True):
@@ -2746,6 +2776,11 @@ class LLRPReaderClient:
             self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)
 
         if self.disconnect_requested.is_set():
+            try:
+                self.hard_disconnect()
+            except Exception:
+                logger.exception("hard_disconnect error during requested disconnect")
+            self._on_disconnected()
             return True
 
         try:

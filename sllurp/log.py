@@ -31,26 +31,25 @@ def is_general_debug_enabled():
 
 
 def init_logging(debug=False, logfile=None, stream="stderr"):
-    """Initialize logging with UTC timestamps.
-
-    The historical ``stream`` argument is retained for API compatibility.
-    Sllurp continues to route INFO-and-below messages to stdout and warnings
-    and errors to stderr.
-    """
+    """Initialize logging with UTC timestamps on the requested diagnostic stream."""
     set_general_debug(debug)
 
     loglevel = logging.DEBUG if debug else logging.INFO
     logformat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
     formatter = UTCFormatter(logformat, datefmt="%Y-%m-%dT%H:%M:%S")
 
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stdout_handler.setFormatter(formatter)
-    stderr_handler.setFormatter(formatter)
-    lower_than_warning = MaxLevelFilter(logging.WARNING)
-    stdout_handler.addFilter(lower_than_warning)
-    stdout_handler.setLevel(loglevel)
-    stderr_handler.setLevel(max(loglevel, logging.WARNING))
+    if stream == "stderr":
+        output_stream = sys.stderr
+    elif stream == "stdout":
+        output_stream = sys.stdout
+    elif hasattr(stream, "write"):
+        output_stream = stream
+    else:
+        raise ValueError("stream must be 'stderr', 'stdout', or a writable stream")
+
+    stream_handler = logging.StreamHandler(output_stream)
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(loglevel)
 
     root = logging.getLogger()
     root.setLevel(loglevel)
@@ -63,10 +62,9 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
         try:
             handler.close()
         except Exception:
-            root.debug("failed to close previous logging handler", exc_info=True)
+            pass
 
-    root.addHandler(stderr_handler)
-    root.addHandler(stdout_handler)
+    root.addHandler(stream_handler)
 
     if logfile:
         fhandler = logging.FileHandler(logfile)

@@ -40,6 +40,7 @@ All notable changes to this fork should be documented here. This project uses se
 - Timed-pause tests now wait on the actual asynchronous state transition instead of relying on fixed scheduler timing.
 - Aligned the stale `sllurp/llrp_proto.py` GPLv2 header wording with the project's GPLv3 license while preserving existing copyright notices.
 - Corrected Impinj frequency capability decoding to advance 32-bit frequency entries by the correct stride.
+- Closed the 19-item 2026-09-14 repository audit: transactional rollback/cleanup, continuous reporting, LLRP wire encoders/decoders, mode reset, disconnect cleanup, FastAPI shutdown, stdout-safe logging, CLI exit status, detached state snapshots, documentation recipes, and minimum build-backend compatibility.
 
 ## Release history
 

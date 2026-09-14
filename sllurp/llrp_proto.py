@@ -143,6 +143,7 @@ ushort_ubyte_uint_pack = struct.Struct("!HBI").pack
 ushort_ushort_ushort_pack = struct.Struct("!HHH").pack
 uint_ubyte_ubyte_pack = struct.Struct("!IBB").pack
 ubyte_ushort_ushort_ushort_pack = struct.Struct("!BHHH").pack
+ushort_ubyte_ushort_ushort_pack = struct.Struct("!HBHH").pack
 
 ubyte_unpack = struct.Struct("!B").unpack
 short_unpack = struct.Struct("!h").unpack
@@ -593,7 +594,7 @@ def encode_param(name, par):
     sub_data = encode_func(par, param_info)
 
     if param_info.get("tv_encoded", False):
-        data = tve_header_pack(param_type, len(sub_data))
+        data = tve_header_pack(0x80 | param_type)
     elif param_type == TYPE_CUSTOM:
         if name != "CustomParameter":
             vendorid = param_info["vendorid"]
@@ -700,7 +701,7 @@ def encode_GetReaderConfig(msg, param_info):
     ant = msg.get("AntennaID", 0)
     gpipn = msg.get("GPIPortNum", 0)
     gpopn = msg.get("GPOPortNum", 0)
-    packed = ubyte_ushort_ushort_ushort_pack(req, ant, gpipn, gpopn)
+    packed = ushort_ubyte_ushort_ushort_pack(ant, req, gpipn, gpopn)
 
     data = encode_all_parameters(msg, param_info, packed)
     return data
@@ -1069,7 +1070,7 @@ Param_struct["RegulatoryCapabilities"] = {
         "UHFBandCapabilities",
     ],
     "encode": basic_auto_param_encode_generator(
-        ushort_ushort_unpack, "CountryCode", "CommunicationsStandard"
+        ushort_ushort_pack, "CountryCode", "CommunicationsStandard"
     ),
     "decode": basic_auto_param_decode_generator(
         ushort_ushort_unpack,
@@ -1898,7 +1899,7 @@ def decode_GPITriggerValue(data, name=None):
 
 
 Param_struct["GPITriggerValue"] = {
-    "type": 180,
+    "type": 181,
     "fields": ["GPIPortNum", "GPIEvent", "Timeout"],
     "encode": encode_GPITriggerValue,
     "decode": decode_GPITriggerValue,
@@ -2996,7 +2997,9 @@ def decode_AISpecEvent(data, name=None):
     logger.debugfast("decode_AISpecEvent")
     par = {}
 
-    _, par["ROSpecID"], par["SpecIndex"] = ubyte_uint_ushort_unpack(data)
+    _, par["ROSpecID"], par["SpecIndex"] = ubyte_uint_ushort_unpack(
+        data[:ubyte_uint_ushort_size]
+    )
     offset = ubyte_uint_ushort_size
     data = data[offset:]
 
@@ -3670,8 +3673,8 @@ def decode_ImpinjGGASentence(data, name=None):
 
     byte_count = ushort_unpack(data[:ushort_size])[0]
     data = data[ushort_size:]
-    par = {"GGASentence": data[ushort_size : ushort_size + byte_count]}
-    data = data[ushort_size + byte_count :]
+    par = {"GGASentence": data[:byte_count]}
+    data = data[byte_count:]
     par, _ = decode_all_parameters(data, "ImpinjGGASentence", par)
     return par, ""
 
@@ -3692,8 +3695,8 @@ def decode_ImpinjRMCSentence(data, name=None):
 
     byte_count = ushort_unpack(data[:ushort_size])[0]
     data = data[ushort_size:]
-    par = {"RMCSentence": data[ushort_size : ushort_size + byte_count]}
-    data = data[ushort_size + byte_count]
+    par = {"RMCSentence": data[:byte_count]}
+    data = data[byte_count:]
     par, _ = decode_all_parameters(data, "ImpinjRMCSentence", par)
 
     return par, ""
@@ -4552,8 +4555,8 @@ Param_struct["MotoFilterTagList"] = {
     "fields": [
         "Match",
     ],
-    "n_fields": ["EPCData"],
-    "decode": decode_all_parameters,
+    "n_fields": ["EPC"],
+    "decode": decode_MotoFilterTagList,
 }
 
 
@@ -4852,7 +4855,9 @@ class LLRPROSpec(dict):
                 "ROReportSpec": {
                     "ROReportTrigger": "Upon_N_Tags_Or_End_Of_AISpec",
                     "TagReportContentSelector": tagReportContentSelector,
-                    "N": 0,
+                    # Continuous inventory must still have a finite report
+                    # trigger. One tag is the safest interoperable default.
+                    "N": 1,
                 },
             }
         )

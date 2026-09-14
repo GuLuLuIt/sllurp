@@ -101,10 +101,13 @@ async def lifespan(_application: FastAPI):
             await task
         if READER and READER.is_alive():
             try:
-                READER.llrp.stopPolitely()
-                READER.disconnect()
+                READER.disconnect(timeout=2)
+                if READER.is_alive():
+                    READER.hard_disconnect()
+                    READER.join(1)
             except Exception:
                 logger.exception("Error during reader shutdown")
+                READER.hard_disconnect()
 
 
 app = FastAPI(lifespan=lifespan)
