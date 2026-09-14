@@ -1,0 +1,99 @@
+name: Fix upstream audit regression coverage
+
+on:
+  push:
+    branches:
+      - upstream/fix-audit-protocol-cli-2026-09-14
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: upstream/fix-audit-protocol-cli-2026-09-14
+      - name: Patch upstream access validation and focused tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected one match, got {text.count(old)}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'sllurp/verb/access.py',
+              '''    if not args.read_words and not args.write_words:
+                  logger.info("Error: Either --read-words or --write-words has to be" " chosen.")
+                  return 0
+          ''',
+              '''    if args.read_words is not None and args.write_words is not None:
+                  logger.error("Choose only one of --read-words or --write-words.")
+                  return 2
+              if args.read_words is None and args.write_words is None:
+                  logger.info("Error: Either --read-words or --write-words has to be chosen.")
+                  return 2
+          ''',
+          )
+
+          replace_once(
+              'tests/test_audit_protocol_regressions.py',
+              '''def test_fastapi_shutdown_uses_public_disconnect_once():
+              source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
+              assert "READER.llrp.stopPolitely()" not in source
+              assert "READER.disconnect(timeout=2)" in source
+          ''',
+              '''def test_fastapi_shutdown_uses_public_disconnect_once():
+              source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
+              lifespan_shutdown = source.split("    finally:", 1)[1].split("\n\napp =", 1)[0]
+              assert "READER.llrp.stopPolitely()" not in lifespan_shutdown
+              assert "READER.disconnect(timeout=2)" in lifespan_shutdown
+          ''',
+          )
+
+          replace_once(
+              'tests/test_audit_protocol_regressions.py',
+              '''def test_invalid_access_cli_returns_nonzero():
+              result = CliRunner().invoke(cli, ["access", "offline.invalid"])
+              assert result.exit_code == 2
+          ''',
+              '''def test_invalid_access_cli_returns_nonzero():
+              result = CliRunner().invoke(cli, ["access", "offline.invalid"])
+              assert result.exit_code == 2
+              both = CliRunner().invoke(
+                  cli,
+                  ["access", "--read-words", "1", "--write-words", "1", "offline.invalid"],
+              )
+              assert both.exit_code == 2
+          ''',
+          )
+
+          replace_once(
+              'tests/test_audit_protocol_regressions.py',
+              '''def test_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
+              info = proto.Param_struct["MotoFilterTagList"]
+              assert info["decode"] is proto.decode_MotoFilterTagList
+              assert info["n_fields"] == ["EPC"]
+          ''',
+              '''def test_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
+              info = proto.Param_struct["MotoFilterTagList"]
+              assert info["decode"] is proto.decode_MotoFilterTagList
+              assert "EPC" in info["n_fields"]
+              assert "EPCData" not in info["n_fields"]
+          ''',
+          )
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sllurp/verb/access.py tests/test_audit_protocol_regressions.py
+          git commit -m 'Fix access validation and upstream audit tests'
+          git push origin HEAD:upstream/fix-audit-protocol-cli-2026-09-14
