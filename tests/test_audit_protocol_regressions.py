@@ -95,9 +95,7 @@ def test_requested_disconnect_lost_connection_still_cleans_and_notifies():
 
 def test_fastapi_shutdown_uses_public_disconnect_once():
     source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
-    lifespan_shutdown = source.split("    finally:", 1)[1].split("
-
-app =", 1)[0]
+    lifespan_shutdown = source.split("    finally:", 1)[1].split("\n\napp =", 1)[0]
     assert "READER.llrp.stopPolitely()" not in lifespan_shutdown
     assert "READER.disconnect(timeout=2)" in lifespan_shutdown
 
