@@ -1,0 +1,31 @@
+name: Patch upstream FastAPI queue
+
+on:
+  push:
+    branches: [upstream/fix-fastapi-bounded-tag-queue]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: upstream/fix-fastapi-bounded-tag-queue
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python .github/patch_upstream_fastapi_queue.py
+      - run: python -m compileall -q examples/fastapi/app.py
+      - run: |
+          rm .github/patch_upstream_fastapi_queue.py
+          rm .github/workflows/patch-upstream-fastapi-queue.yml
+          rm .github/workflows/patch-upstream-fastapi-queue-v2.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Bound FastAPI tag update queue"
+          git push origin HEAD:upstream/fix-fastapi-bounded-tag-queue
