@@ -43,7 +43,10 @@ test = [
 sllurp = "sllurp.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/sllurp/sllurp"
+Homepage = "https://github.com/GuLuLuIt/sllurp"
+Repository = "https://github.com/GuLuLuIt/sllurp"
+Documentation = "https://github.com/GuLuLuIt/sllurp/blob/main/QUICKSTART.md"
+Issues = "https://github.com/GuLuLuIt/sllurp/issues"
 
 [tool.setuptools.packages.find]
 include = ["sllurp*"]
