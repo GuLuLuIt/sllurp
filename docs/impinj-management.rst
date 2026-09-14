@@ -13,6 +13,11 @@ For R700/R720 web management, continue with the Python example below after the
 reader's documented REST service and credentials are configured.  The full docs
 map is in `docs/index.rst <index.rst>`_.
 
+Runnable examples:
+
+* `Impinj R700/R720 management <../examples/impinj_management.py>`_
+* `CLI recipes for Impinj inventory extensions <../examples/cli-recipes.md>`_
+
 Sllurp separates RFID inventory control from reader administration.  Inventory
 continues to use LLRP.  Device-management over HTTP/HTTPS is implemented only
 where Impinj publishes a stable machine API.
@@ -85,7 +90,8 @@ Unified factory
 ---------------
 
 ``create_reader_manager`` selects the documented adapter from a model name.  It
-currently selects Zebra RM/IoT adapters and the Impinj R700-series REST adapter.
+currently selects Zebra RM/IoT adapters, the Impinj R700-series REST adapter,
+and Honeywell/Intermec DCWS adapters.
 
 .. code:: python
 
@@ -113,3 +119,10 @@ References
 * Impinj Speedway installation and operations guide (RShell machine
   management):
   https://support.impinj.com/hc/article_attachments/4403721192979/Impinj_SpeedwayR_installation_and_operations_guide_7.6.pdf
+
+Related examples
+----------------
+
+* `Impinj management example <../examples/impinj_management.py>`_
+* `CLI recipes <../examples/cli-recipes.md>`_
+* `Example guide <examples.rst>`_

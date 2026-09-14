@@ -14,7 +14,9 @@ For a private CA::
 
     sllurp inventory --tls --tls-ca-file reader-ca.pem reader.example.com
 
-The full documentation map is in `docs/index.rst <index.rst>`_.
+More copyable TLS and mTLS commands are in
+`examples/cli-recipes.md <../examples/cli-recipes.md>`_.  The full
+documentation map is in `docs/index.rst <index.rst>`_.
 
 LLRP can run over TLS. IANA assigns TCP port 5084 to normal LLRP and TCP port
 5085 to encrypted LLRP. sllurp's TLS transport is reader-neutral: it can be used
@@ -215,3 +217,10 @@ Hardware validation
 The TLS transport is covered by unit tests using mocked sockets and SSL
 contexts. Actual interoperability still depends on reader model, firmware,
 certificate configuration, and supported TLS versions/cipher suites.
+
+Related examples
+----------------
+
+* `TLS and mTLS CLI recipes <../examples/cli-recipes.md>`_
+* `Basic Python inventory <../examples/basic_inventory.py>`_
+* `Example guide <examples.rst>`_

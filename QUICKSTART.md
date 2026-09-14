@@ -185,6 +185,8 @@ Backends:
 
 For RF telemetry, prefer raw observations or memory deduplication so cross-antenna observations are not collapsed.
 
+Runnable Python example: [`examples/dedup_inventory.py`](examples/dedup_inventory.py).
+
 ## 12. Secure LLRP / TLS
 
 Normal LLRP defaults to TCP 5084. `--tls` defaults to TCP 5085 unless `--port` is supplied.
@@ -223,7 +225,7 @@ sllurp inventory \
 
 `--tls-no-verify` is for controlled testing. Prefer the correct CA for normal deployments.
 
-See [Secure LLRP](docs/secure_llrp.rst).
+See [Secure LLRP](docs/secure_llrp.rst) and the [CLI recipes](examples/cli-recipes.md).
 
 ## 13. Impinj inventory extensions
 
@@ -245,6 +247,8 @@ Fixed-frequency extension where supported:
 sllurp inventory --impinj-fixed-frequency -f 1,2 -a 0 192.168.1.50
 ```
 
+More command examples: [`examples/cli-recipes.md`](examples/cli-recipes.md).
+
 ## 14. Tag memory access
 
 Read two 16-bit words:
@@ -260,6 +264,8 @@ sllurp access --read-words 2 --memory-bank 2 --word-ptr 0 --count 1 192.168.1.50
 ```
 
 Use `sllurp access --help` before write operations. Test writes with disposable/test tags first.
+
+More examples: [`examples/cli-recipes.md`](examples/cli-recipes.md).
 
 ## 15. Stream tag data
 
@@ -295,6 +301,8 @@ finally:
     reader.disconnect()
 ```
 
+Runnable version: [`examples/basic_inventory.py`](examples/basic_inventory.py).
+
 ## 17. RF telemetry
 
 Use `standard` for portable LLRP telemetry or `zebra` for supported Zebra/Motorola phase and physical-port extensions:
@@ -311,7 +319,7 @@ config = LLRPReaderConfig({
 
 Sllurp acquires and normalizes observations; localization/vector math belongs in the consuming application or a higher-level library.
 
-See [RF telemetry](docs/rf-telemetry.rst).
+See [RF telemetry](docs/rf-telemetry.rst) and [`examples/rf_telemetry.py`](examples/rf_telemetry.py).
 
 ## 18. Dynamic runtime configuration
 
@@ -336,7 +344,7 @@ state = reader.llrp.get_config_state()
 print(state)
 ```
 
-See [Runtime state and dynamic configuration](docs/runtime-state.rst).
+See [Runtime state and dynamic configuration](docs/runtime-state.rst) and [`examples/runtime_config.py`](examples/runtime_config.py).
 
 ## 19. Generic HTTP/HTTPS reader management
 
@@ -359,7 +367,7 @@ manager.update_settings(
 )
 ```
 
-See [Reader management and deduplication](docs/reader-management.rst).
+See [Reader management and deduplication](docs/reader-management.rst) and [`examples/reader_management_generic.py`](examples/reader_management_generic.py).
 
 ## 20. Zebra management
 
@@ -377,7 +385,7 @@ print(manager.get_info())
 print(manager.get_status())
 ```
 
-See [Reader management](docs/reader-management.rst).
+See [Reader management](docs/reader-management.rst) and [`examples/zebra_management.py`](examples/zebra_management.py).
 
 ## 21. Impinj R700/R720 management
 
@@ -394,7 +402,7 @@ manager = ImpinjRESTManager(
 print(manager.get_status())
 ```
 
-See [Impinj management](docs/impinj-management.rst).
+See [Impinj management](docs/impinj-management.rst) and [`examples/impinj_management.py`](examples/impinj_management.py).
 
 ## 22. Honeywell / Intermec IF-series management
 
@@ -413,7 +421,7 @@ manager = create_reader_manager(
 print(manager.list_operations())
 ```
 
-See [Honeywell / Intermec management](docs/intermec-management.rst).
+See [Honeywell / Intermec management](docs/intermec-management.rst) and [`examples/intermec_management.py`](examples/intermec_management.py).
 
 ## 23. Reader compatibility
 
@@ -421,7 +429,13 @@ Reader support is capability-driven. Do not assume all SKUs expose the same ante
 
 See [Reader compatibility](docs/readers.rst).
 
-## 24. Troubleshooting
+## 24. Runnable examples
+
+The [`examples/README.md`](examples/README.md) index groups the runnable examples by feature. It includes Python inventory, deduplication, RF telemetry, runtime configuration, generic and vendor management, CLI recipes, FastAPI, and Tornado/WebSocket integration.
+
+The documentation-oriented map is in [`docs/examples.rst`](docs/examples.rst).
+
+## 25. Troubleshooting
 
 ### Connection refused or timeout
 
@@ -449,9 +463,10 @@ sllurp --debug inventory READER_HOST
 sllurp --debug --logfile sllurp.log inventory READER_HOST
 ```
 
-## 25. Documentation
+## 26. Documentation
 
 - [Documentation index](docs/index.rst)
+- [Example guide](docs/examples.rst)
 - [Reader compatibility](docs/readers.rst)
 - [Secure LLRP](docs/secure_llrp.rst)
 - [Reader management and deduplication](docs/reader-management.rst)

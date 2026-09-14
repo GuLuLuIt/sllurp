@@ -11,7 +11,8 @@ LLRP and accepts a basic inventory::
     sllurp inventory -a 0 READER_HOST
 
 For Secure LLRP, reader management, RF telemetry, and runtime configuration,
-use the feature links in `docs/index.rst <index.rst>`_.
+use the feature links in `docs/index.rst <index.rst>`_.  Runnable examples are
+indexed in `examples/README.md <../examples/README.md>`_.
 
 sllurp implements standard GS1/EPCglobal LLRP and is deliberately not tied to
 one reader model.  Readers in this document fall into two groups:
@@ -112,6 +113,20 @@ Alien
 Alien documents LLRP 1.1 for the ALR-9900+ and ALR-9900+EMA family.  Core LLRP
 can therefore be used by sllurp.  Secure LLRP remains unverified in the vendor
 material reviewed for this change.
+
+Choosing an example
+-------------------
+
+* Start with `basic_inventory.py <../examples/basic_inventory.py>`_ for a
+  vendor-neutral Python inventory test.
+* Use `CLI recipes <../examples/cli-recipes.md>`_ for Secure LLRP and Impinj
+  inventory extensions.
+* Use `zebra_management.py <../examples/zebra_management.py>`_,
+  `impinj_management.py <../examples/impinj_management.py>`_, or
+  `intermec_management.py <../examples/intermec_management.py>`_ only when the
+  reader exposes the corresponding documented management API.
+* Use `rf_telemetry.py <../examples/rf_telemetry.py>`_ when antenna-aware RF
+  observations are needed.
 
 References
 ----------

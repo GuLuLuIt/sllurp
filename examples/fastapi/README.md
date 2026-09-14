@@ -1,69 +1,78 @@
-# RFID Reader Control
+# Sllurp FastAPI RFID reader demo
 
-This project provides a web-based interface to control an RFID reader and manage tag data. It includes a FastAPI backend to handle RFID reader operations and a simple HTML frontend to interact with the backend.
+This example exposes a small FastAPI/WebSocket application around an LLRP reader and a simple browser UI. It is an application example, not the recommended starting point for first-time Sllurp setup.
 
-## Features
+Start with the repository [Quick Start](../../QUICKSTART.md) and confirm normal inventory works before running a web framework around the reader.
 
-- **Start RFID Reader**: Initiate the RFID reader to start scanning for tags.
-- **Stop RFID Reader**: Stop the RFID reader and return tag data.
-- **Get Tags**: Retrieve the list of tags scanned by the RFID reader.
-- **Status**: Check the status of the RFID reader (connected, disconnected).
-- **State**: Get the state of the RFID reader.
+## What it demonstrates
 
-## Package manager
-
-- uv (https://docs.astral.sh/uv/)
+- connect to an LLRP reader from an application lifecycle
+- start and stop inventory
+- receive tag callbacks
+- expose reader/tag state through HTTP endpoints
+- push tag updates to a browser over WebSockets
 
 ## Requirements
 
-- Python 3.13
+- Sllurp supports Python 3.10 or newer
+- the included `uv.lock` / example `pyproject.toml` currently target Python 3.13 or newer
 - FastAPI
-- sllurp
-- uvicorn
-- pydantic
-- websockets
+- Uvicorn
+- Pydantic
+- WebSocket support
 
-## Setup
+If you use the pip/requirements setup below rather than the included `uv` lock, use dependency versions compatible with your selected supported Python version.
 
-1. **Clone the repository**:
+## Setup with pip
 
-   ```sh
-   git clone <repository-url>
-   cd <repository-directory>/examples/fastapi
-   ```
+From the repository root:
 
-2. **Create a virtual environment**:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m pip install -r examples/fastapi/requirements.txt
+```
 
-   ```sh
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
+On Windows PowerShell use:
 
-3. **Install dependencies**:
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+python -m pip install -r examples\fastapi\requirements.txt
+```
 
-   ```sh
-   pip install -r requirements.txt
-   ```
+Before running, edit `READER_IP` in `app.py` or adapt the example to read the address from your application configuration.
 
-## Running the Application
+## Run
 
-1. **Start the FastAPI server**:
+```bash
+cd examples/fastapi
+python app.py
+```
 
-   ```sh
-   python app.py
-   ```
+Or with `uv` and Python 3.13+:
 
-   ```sh
-   uv run app.py
-   ```
+```bash
+cd examples/fastapi
+uv run app.py
+```
 
-2. **Open the `index.html` file in your browser** to access the web interface to test.
+Open `index.html` in a browser to use the simple test UI.
 
-## API Endpoints
+## Endpoints
 
-- **GET /start**: Start the RFID reader.
-- **GET /last-read**: Get the last scanned tags.
-- **GET /stop**: Stop the RFID reader and return tag data.
-- **GET /status**: Get the status (connected, disconnected) of the RFID reader.
-- **GET /state**: Get the state of the RFID reader.
-- **GET /clear**: Clear tag data
+- `GET /start` — start inventory
+- `GET /stop` — stop inventory
+- `GET /last-read` — return the latest tag set
+- `GET /status` — report connection status
+- `GET /state` — report the Sllurp protocol state
+- `GET /clear` — clear stored tag data
+- `WS /ws` — stream tag updates
+
+## Production notes
+
+The demo intentionally keeps application structure simple. Before production use, configure reader address/credentials outside source code, restrict CORS, add authentication/authorization, validate WebSocket clients, and define your own reconnect/error policy.
+
+For smaller feature-specific examples, see [`../README.md`](../README.md).

@@ -11,7 +11,9 @@ Install and verify a normal inventory first using the
 
 Then enable telemetry in Python with ``rf_telemetry_mode="standard"`` for
 portable LLRP fields or ``"zebra"`` for supported Zebra/Motorola phase and
-physical-port extensions.  The full docs map is in `docs/index.rst <index.rst>`_.
+physical-port extensions.  A runnable collector is in
+`examples/rf_telemetry.py <../examples/rf_telemetry.py>`_.  The full docs map
+is in `docs/index.rst <index.rst>`_.
 
 Purpose
 -------
@@ -55,6 +57,14 @@ Quick start
         # Leave None for raw repeated RF observations.
         "dedup_seconds": None,
     })
+
+Run the complete example with::
+
+    python examples/rf_telemetry.py READER_HOST --mode standard --antenna 1
+
+or, for supported Zebra phase telemetry::
+
+    python examples/rf_telemetry.py READER_HOST --mode zebra --antenna 1 --antenna 2
 
 Data flow
 ---------
@@ -252,3 +262,10 @@ Sllurp treats FXR90 model strings as one capability-driven family rather than
 hard-coding antenna counts. Four-port, integrated-antenna/external-port, and
 eight-port variants therefore use the same RF telemetry mode; actual antenna
 availability remains reader-reported.
+
+Related examples
+----------------
+
+* `RF telemetry collector <../examples/rf_telemetry.py>`_
+* `Timed deduplication <../examples/dedup_inventory.py>`_
+* `Example guide <examples.rst>`_
