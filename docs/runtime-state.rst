@@ -1,6 +1,20 @@
 Runtime state and dynamic configuration
 =======================================
 
+Start here
+----------
+
+Install and verify normal inventory first with the
+`Quick Start <../QUICKSTART.md>`_.  After a client is connected, use
+``apply_config()`` for controlled live changes rather than mutating configuration
+objects in place.  The full docs map is in `docs/index.rst <index.rst>`_.
+
+Minimal pattern::
+
+    new_config = LLRPReaderConfig({"antennas": [1, 2], "tx_power": 0})
+    transition = reader.apply_config(new_config)
+    print(transition)
+
 Sllurp distinguishes configuration that the application *wants* from the
 ROSpec generated from it and from configuration known to be active in the
 current inventory session.
