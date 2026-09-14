@@ -643,7 +643,7 @@ class ZebraIoTConnectorManager:
 
     def set_hostname(self, hostname: str) -> Any:
         return self.request(
-            "PUT", "/cloud/hostname", json_body={"hostName": hostname}
+            "PUT", "/cloud/hostname", json_body={"hostname": hostname}
         )
 
     def get_region(self) -> Any:

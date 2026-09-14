@@ -343,7 +343,7 @@ def test_iot_login_then_bearer_and_wrappers(management_server):
     assert manager.get_network("eth0")["body"] == {"interface": "eth0"}
     manager.set_network({"hostName": "x"})
     manager.get_hostname()
-    manager.set_hostname("reader")
+    assert manager.set_hostname("reader")["body"] == {"hostname": "reader"}
     manager.get_region()
     manager.get_supported_regions()
     manager.get_config()
