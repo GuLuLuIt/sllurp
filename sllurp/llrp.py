@@ -1228,7 +1228,14 @@ class LLRPClient:
                 status = lmsg.msgdict[msgName]["LLRPStatus"]["StatusCode"]
                 err = lmsg.msgdict[msgName]["LLRPStatus"]["ErrorDescription"]
                 logger.error("Error %s adding ROSpec: %s", status, err)
+                failed_request_id = self.last_msg_id
                 self.processDeferreds(msgName, False)
+                # A rollback callback may already have sent a new request or
+                # entered a terminal state. Preserve its recovery; otherwise
+                # keep the standalone startup failure fatal as before.
+                if (self.state == LLRPReaderState.STATE_SENT_ADD_ROSPEC
+                        and self.last_msg_id == failed_request_id):
+                    raise ReaderConfigurationError("Error adding ROSpec")
                 return
 
             self.processDeferreds(msgName, lmsg.isSuccess())

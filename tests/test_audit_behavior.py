@@ -9,8 +9,17 @@ from pathlib import Path
 import pytest
 
 from sllurp.llrp import LLRPClient, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
+from sllurp.llrp_errors import ReaderConfigurationError
 from sllurp.log import init_logging
-from tests.test_audit_19_regressions import _message_names, _respond
+from test_audit_19_regressions import _message_names, _respond
+
+
+def test_standalone_add_rejection_retains_fatal_error():
+    client = LLRPClient(LLRPReaderConfig(), transport_tx_write=lambda _: None)
+    client.state = LLRPReaderState.STATE_CONNECTED
+    client.startInventory()
+    with pytest.raises(ReaderConfigurationError, match="adding ROSpec"):
+        _respond(client, "ADD_ROSPEC_RESPONSE", False)
 
 
 @pytest.mark.parametrize("failed_index,rollback_failure,expected_tail,final_state", [
