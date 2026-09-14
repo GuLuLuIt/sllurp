@@ -11,6 +11,8 @@ verification.  Confirm normal LLRP inventory works first::
 
 Then use the DCWS manager below for the reader's separate Device Configuration
 Web Service.  The full documentation map is in `docs/index.rst <index.rst>`_.
+A runnable WSDL discovery example is in
+`examples/intermec_management.py <../examples/intermec_management.py>`_.
 
 Honeywell/Intermec IF1, IF2, and IF61 readers expose Device Configuration Web
 Services (DCWS) over HTTP or HTTPS.  DCWS is a SOAP service, not a REST API.
@@ -104,3 +106,10 @@ References
   Services and ``DeviceConfiguration.wsdl``.
 * IF61 Fixed Reader User Guide documents secure/insecure Device Configuration
   Web Services and the downloadable WSDL.
+
+Related examples
+----------------
+
+* `Honeywell/Intermec DCWS example <../examples/intermec_management.py>`_
+* `Generic management example <../examples/reader_management_generic.py>`_
+* `Example guide <examples.rst>`_
