@@ -15,6 +15,9 @@ Minimal pattern::
     transition = reader.apply_config(new_config)
     print(transition)
 
+A complete runnable example is in
+`examples/runtime_config.py <../examples/runtime_config.py>`_.
+
 Sllurp distinguishes configuration that the application *wants* from the
 ROSpec generated from it and from configuration known to be active in the
 current inventory session.
@@ -70,3 +73,10 @@ Callback registries are protected by an internal re-entrant lock.  Dispatch
 captures an ordered snapshot under the lock and releases the lock before
 calling application code.  Add/remove/clear operations during a dispatch
 therefore affect the next dispatch cycle, never corrupt the current one.
+
+Related examples
+----------------
+
+* `Basic Python inventory <../examples/basic_inventory.py>`_
+* `Live runtime configuration <../examples/runtime_config.py>`_
+* `Example guide <examples.rst>`_
