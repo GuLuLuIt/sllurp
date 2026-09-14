@@ -1,0 +1,258 @@
+name: Repair audit rollback semantics
+
+on:
+  push:
+    branches:
+      - fix/remaining-audit-bugs-2026-09-14
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/remaining-audit-bugs-2026-09-14
+      - name: Apply exact rollback and test repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, got {count}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'sllurp/llrp.py',
+              '        self.rospec = None\n\n        self.last_msg_id = 0\n',
+              '        self.rospec = None\n        self._inventory_rospec_added = False\n\n        self.last_msg_id = 0\n',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''        was_inventorying = original_state == LLRPReaderState.STATE_INVENTORYING
+              was_paused = original_state == LLRPReaderState.STATE_PAUSED
+
+              def restore_old(error):
+          ''',
+              '''        was_inventorying = original_state == LLRPReaderState.STATE_INVENTORYING
+              was_paused = original_state == LLRPReaderState.STATE_PAUSED
+              new_reader_config_applied = False
+
+              def restore_old(error):
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''            def cleanup_replacement_rospec():
+                  if not was_inventorying:
+                      finish_restore()
+                      return
+                  self.setState(LLRPReaderState.STATE_CONNECTED)
+                  self.stopAllROSpecs(onCompletion=after_rospec_cleanup)
+          ''',
+              '''            def cleanup_replacement_rospec():
+                  if not was_inventorying or not self._inventory_rospec_added:
+                      finish_restore()
+                      return
+                  self.setState(LLRPReaderState.STATE_CONNECTED)
+                  self.stopAllROSpecs(onCompletion=after_rospec_cleanup)
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''            if plan.requires_reader_config_write:
+                  self.setState(LLRPReaderState.STATE_CONNECTED)
+                  self._suppress_set_config_post_actions = True
+                  self.send_SET_READER_CONFIG(onCompletion=old_reader_config_restored)
+              else:
+                  cleanup_replacement_rospec()
+          ''',
+              '''            if plan.requires_reader_config_write and new_reader_config_applied:
+                  self.setState(LLRPReaderState.STATE_CONNECTED)
+                  self._suppress_set_config_post_actions = True
+                  self.send_SET_READER_CONFIG(onCompletion=old_reader_config_restored)
+              else:
+                  cleanup_replacement_rospec()
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''        def reader_config_applied(state, is_success, *args):
+              if is_success:
+                  finish_new_state()
+              else:
+                  restore_old("SET_READER_CONFIG failed during apply_config")
+          ''',
+              '''        def reader_config_applied(state, is_success, *args):
+              nonlocal new_reader_config_applied
+              if is_success:
+                  new_reader_config_applied = True
+                  finish_new_state()
+              else:
+                  restore_old("SET_READER_CONFIG failed during apply_config")
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''    def startInventory(self, force_regen_rospec=False, onCompletion=None):
+              """Add and enable a ROSpec, optionally reporting terminal success."""
+              if self.state == LLRPReaderState.STATE_INVENTORYING:
+          ''',
+              '''    def startInventory(self, force_regen_rospec=False, onCompletion=None):
+              """Add and enable a ROSpec, optionally reporting terminal success."""
+              if self.state == LLRPReaderState.STATE_INVENTORYING:
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''        rospec = self.getROSpec(force_new=force_regen_rospec)
+              logger.info("starting inventory")
+
+              def enabled_rospec_cb(state, is_success, *args):
+          ''',
+              '''        rospec = self.getROSpec(force_new=force_regen_rospec)
+              self._inventory_rospec_added = False
+              logger.info("starting inventory")
+
+              def enabled_rospec_cb(state, is_success, *args):
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''        def send_added_rospec_cb(state, is_success, *args):
+              if is_success:
+                  self.send_ENABLE_ROSPEC(state, rospec, onCompletion=enabled_rospec_cb)
+              else:
+          ''',
+              '''        def send_added_rospec_cb(state, is_success, *args):
+              if is_success:
+                  self._inventory_rospec_added = True
+                  self.send_ENABLE_ROSPEC(state, rospec, onCompletion=enabled_rospec_cb)
+              else:
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''        def stop_all_rospecs_cb(state, is_success, *args):
+              if not is_success:
+                  self.panic(None, "DELETE_ROSPEC failed")
+              self.rospec = None
+          ''',
+              '''        def stop_all_rospecs_cb(state, is_success, *args):
+              if not is_success:
+                  self.panic(None, "DELETE_ROSPEC failed")
+              else:
+                  self._inventory_rospec_added = False
+              self.rospec = None
+          ''',
+          )
+          replace_once(
+              'sllurp/llrp.py',
+              '''            self.llrp.rospec = None
+              self.llrp.generated_config_snapshot = None
+          ''',
+              '''            self.llrp.rospec = None
+              self.llrp._inventory_rospec_added = False
+              self.llrp.generated_config_snapshot = None
+          ''',
+          )
+          replace_once(
+              'sllurp/log.py',
+              '''        except Exception:
+                  pass
+
+              root.addHandler(stream_handler)
+          ''',
+              '''        except Exception:
+                  logging.getLogger(__name__).debug(
+                      "failed to close previous logging handler", exc_info=True
+                  )
+
+              root.addHandler(stream_handler)
+          ''',
+          )
+
+          test_path = Path('tests/test_audit_19_regressions.py')
+          text = test_path.read_text(encoding='utf-8')
+          text = text.replace(
+              'from sllurp.llrp import LLRPClient, LLRPMessage, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState\n',
+              'from sllurp.llrp import LLRPClient, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState\n',
+          )
+          text = text.replace(
+              '''def _respond(client, name, success=True):
+              client.handleMessage(Response(name, client.last_msg_id, success=success))
+
+
+              def _mode_capabilities():
+          ''',
+              '''def _respond(client, name, success=True):
+              client.handleMessage(Response(name, client.last_msg_id, success=success))
+
+
+              def _message_names(messages):
+              names = []
+              for data in messages:
+                  msgtype, vendorid, subtype, *_ = proto.msg_header_decode(data)
+                  names.append(proto.get_message_name_from_type(msgtype, vendorid, subtype))
+              return names
+
+
+              def _mode_capabilities():
+          ''',
+          )
+          text = text.replace(
+              '''    _respond(client, "ADD_ROSPEC_RESPONSE", success=False)
+              _respond(client, "DELETE_ROSPEC_RESPONSE")
+              _respond(client, "ADD_ROSPEC_RESPONSE")
+          ''',
+              '''    _respond(client, "ADD_ROSPEC_RESPONSE", success=False)
+              _respond(client, "ADD_ROSPEC_RESPONSE")
+          ''',
+              1,
+          )
+          text = text.replace(
+              '    names = [LLRPMessage(msgbytes=data).getName() for data in sent]\n',
+              '    names = _message_names(sent)\n',
+          )
+          text = text.replace(
+              '''def test_f11_fastapi_shutdown_uses_public_disconnect_once():
+              source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
+              assert "READER.llrp.stopPolitely()" not in source
+              assert "READER.disconnect(timeout=2)" in source
+          ''',
+              '''def test_f11_fastapi_shutdown_uses_public_disconnect_once():
+              source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
+              lifespan_shutdown = source.split("    finally:", 1)[1].split("\\n\\napp =", 1)[0]
+              assert "READER.llrp.stopPolitely()" not in lifespan_shutdown
+              assert "READER.disconnect(timeout=2)" in lifespan_shutdown
+          ''',
+          )
+          text = text.replace(
+              '''def test_f14_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
+              info = proto.Param_struct["MotoFilterTagList"]
+              assert info["decode"] is proto.decode_MotoFilterTagList
+              assert info["n_fields"] == ["EPC"]
+          ''',
+              '''def test_f14_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
+              info = proto.Param_struct["MotoFilterTagList"]
+              assert info["decode"] is proto.decode_MotoFilterTagList
+              assert "EPC" in info["n_fields"]
+              assert "EPCData" not in info["n_fields"]
+          ''',
+          )
+          test_path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sllurp/llrp.py sllurp/log.py tests/test_audit_19_regressions.py
+          git commit -m 'Repair transactional rollback and audit regressions'
+          git push origin HEAD:fix/remaining-audit-bugs-2026-09-14
