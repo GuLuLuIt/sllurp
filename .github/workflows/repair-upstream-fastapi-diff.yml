@@ -25,28 +25,21 @@ jobs:
           path = Path('examples/fastapi/app.py')
           data = path.read_bytes()
           nl = b'\r\n' if b'\r\n' in data else b'\n'
-          old = '''        if READER and READER.is_alive():
-              try:
-                  READER.llrp.stopPolitely()
-                  READER.disconnect()
-                  logging.info("RFID Reader disconnected during shutdown")
-              except Exception as e:
-                  logging.error(f"Error during reader shutdown: {e}")
-          '''.encode().replace(b'\n', nl)
-          new = '''        if READER and READER.is_alive():
-              try:
-                  READER.disconnect(timeout=2)
-                  if READER.is_alive():
-                      READER.hard_disconnect()
-                      READER.join(1)
-                  logging.info("RFID Reader disconnected during shutdown")
-              except Exception as e:
-                  logging.error(f"Error during reader shutdown: {e}")
-                  READER.hard_disconnect()
-          '''.encode().replace(b'\n', nl)
-          if data.count(old) != 1:
-              raise SystemExit(f'expected one shutdown hunk, found {data.count(old)}')
-          path.write_bytes(data.replace(old, new, 1))
+          old_calls = b'                READER.llrp.stopPolitely()' + nl + b'                READER.disconnect()'
+          new_calls = (
+              b'                READER.disconnect(timeout=2)' + nl
+              + b'                if READER.is_alive():' + nl
+              + b'                    READER.hard_disconnect()' + nl
+              + b'                    READER.join(1)'
+          )
+          if data.count(old_calls) != 1:
+              raise SystemExit(f'expected one shutdown call pair, found {data.count(old_calls)}')
+          data = data.replace(old_calls, new_calls, 1)
+          old_error = b'                logging.error(f"Error during reader shutdown: {e}")'
+          new_error = old_error + nl + b'                READER.hard_disconnect()'
+          if data.count(old_error) != 1:
+              raise SystemExit(f'expected one shutdown error line, found {data.count(old_error)}')
+          path.write_bytes(data.replace(old_error, new_error, 1))
           PY
       - name: Commit repair
         run: |
