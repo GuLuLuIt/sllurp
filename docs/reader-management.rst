@@ -12,9 +12,16 @@ The fastest timed-deduplication smoke test is::
 
     sllurp inventory --dedup-seconds 2 --dedup-backend auto -a 0 READER_HOST
 
-Reader web management is a separate protocol from LLRP inventory.  Install this
-fork's current ``main`` branch when you need the management adapters documented
-on this page.
+Runnable examples:
+
+* `Timed deduplication <../examples/dedup_inventory.py>`_
+* `Generic HTTP/HTTPS management <../examples/reader_management_generic.py>`_
+* `Zebra management <../examples/zebra_management.py>`_
+* `Example guide <examples.rst>`_
+
+Reader web management is a separate protocol from LLRP inventory. Install the
+current repository ``main`` branch when you need the management adapters
+documented on this page.
 
 Sllurp's core protocol is LLRP.  LLRP is standardized across compatible RFID
 readers, while each vendor's web-management API is different.  Sllurp therefore
@@ -213,3 +220,13 @@ protocol and capabilities of each reader family.
 LLRP-compatible inventory and the deduplication helper remain vendor-neutral.
 A non-LLRP reader is outside Sllurp's core protocol scope and requires a
 separate transport or vendor SDK.
+
+Related examples
+----------------
+
+* `Timed deduplication <../examples/dedup_inventory.py>`_
+* `Generic HTTP/HTTPS management <../examples/reader_management_generic.py>`_
+* `Zebra management <../examples/zebra_management.py>`_
+* `Impinj management <../examples/impinj_management.py>`_
+* `Honeywell/Intermec management <../examples/intermec_management.py>`_
+* `Example guide <examples.rst>`_
