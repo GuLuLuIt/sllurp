@@ -1,23 +1,7 @@
-Sllurp project license notice
-=============================
-
-SPDX-License-Identifier: GPL-3.0-only
-Repository: https://github.com/GuLuLuIt/sllurp
-
-Sllurp is distributed under the GNU General Public License version 3 only.
-Copyright in individual contributions remains with the respective copyright
-holders and contributors.
-
-The GNU GPLv3 terms follow below. The date "29 June 2007" is the publication
-date of GPL version 3; it identifies the license version and is intentionally
-not changed to the current year.
-
--------------------------------------------------------------------------------
-
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
  Everyone is permitted to copy and distribute verbatim copies
  of this license document, but changing it is not allowed.
 
