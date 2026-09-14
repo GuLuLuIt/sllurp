@@ -14,6 +14,16 @@ from sllurp.llrp import (
 from sllurp.llrp_errors import ReaderConfigurationError
 
 
+def _wait_for(predicate, timeout=1.0, interval=0.005):
+    """Wait for an asynchronous test condition without assuming scheduler timing."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
 def test_legacy_channelist_is_normalized_before_validation():
     config = LLRPReaderConfig(
         {
@@ -97,8 +107,9 @@ def test_timed_pause_schedules_exactly_one_resume_after_pause_ack():
     assert client.state == LLRPReaderState.STATE_PAUSED
     assert client._pause_resume_timer is not None
 
-    time.sleep(0.08)
-    assert client.state == LLRPReaderState.STATE_SENT_ENABLE_ROSPEC
+    assert _wait_for(
+        lambda: client.state == LLRPReaderState.STATE_SENT_ENABLE_ROSPEC
+    )
     assert len(client._deferreds["ENABLE_ROSPEC_RESPONSE"]) == 1
 
     client._cancel_pause_resume_timer()
@@ -113,10 +124,11 @@ def test_disconnect_state_invalidates_stale_timed_pause_resume():
     pause_cb = client.pause(0.03)
     pause_cb(client.state, True)
     assert client.state == LLRPReaderState.STATE_PAUSED
+    assert client._pause_resume_timer is not None
 
     client.setState(LLRPReaderState.STATE_DISCONNECTED)
-    time.sleep(0.08)
     assert client.state == LLRPReaderState.STATE_DISCONNECTED
+    assert client._pause_resume_timer is None
     assert not client._deferreds["ENABLE_ROSPEC_RESPONSE"]
 
 

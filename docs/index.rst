@@ -10,13 +10,17 @@ macOS, installation, first inventory, Secure LLRP, deduplication, tag access,
 logging, reader management, runtime configuration, RF telemetry, and
 troubleshooting.
 
-Install the latest code from this repository::
+Install the feature set documented in this repository directly from ``main``::
 
     python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 
-Or install the published package::
+The ``sllurp`` package on PyPI is the upstream distribution. It is useful when
+you intentionally want the upstream release, but it is not an equivalent
+installation path for fork-specific features documented here.
 
-    python -m pip install sllurp
+Verify which command build is installed::
+
+    sllurp --version
 
 Runnable examples
 -----------------
@@ -48,6 +52,9 @@ Dynamic runtime configuration    `runtime-state.rst <runtime-state.rst>`_
 Command-line map
 ----------------
 
+``sllurp --version``
+    Print the installed Sllurp version and exit.
+
 ``sllurp inventory``
     Inventory tags, select antennas, power, session, Tari, mode, frequencies,
     reconnect behavior, timed deduplication, Impinj extensions, and Secure LLRP.
@@ -63,6 +70,7 @@ Command-line map
 
 Use the installed command's help as the authoritative option list::
 
+    sllurp --version
     sllurp --help
     sllurp inventory --help
     sllurp access --help
