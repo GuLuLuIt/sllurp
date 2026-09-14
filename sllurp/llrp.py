@@ -892,6 +892,10 @@ class LLRPClient:
         deferreds = self._deferreds[msgName]
         if message_id is not None:
             matched_pending = self._pending_requests.pop(msgName, message_id)
+            if matched_pending is None and self._pending_requests.is_stale(
+                msgName, message_id
+            ):
+                return False
         else:
             matched_pending = self._pending_requests.pop_response_type(msgName)
 
