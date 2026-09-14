@@ -1,0 +1,70 @@
+name: Temporary license refresh
+
+on:
+  push:
+    branches:
+      - docs/license-refresh
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: docs/license-refresh
+          fetch-depth: 0
+
+      - name: Refresh license notice and project URLs
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          license_path = Path('LICENSE.txt')
+          text = license_path.read_text()
+          notice = '''Sllurp project license notice
+          =============================
+
+          SPDX-License-Identifier: GPL-3.0-only
+          Repository: https://github.com/GuLuLuIt/sllurp
+
+          Sllurp is distributed under the GNU General Public License version 3 only.
+          Copyright in individual contributions remains with the respective copyright
+          holders and contributors.
+
+          The GNU GPLv3 terms follow below. The date "29 June 2007" is the publication
+          date of GPL version 3; it identifies the license version and is intentionally
+          not changed to the current year.
+
+          -------------------------------------------------------------------------------
+
+          '''
+          if not text.startswith('Sllurp project license notice'):
+              text = text.replace('<http://fsf.org/>', '<https://fsf.org/>', 1)
+              license_path.write_text(notice + text)
+
+          pyproject = Path('pyproject.toml')
+          meta = pyproject.read_text()
+          old = 'Homepage = "https://github.com/sllurp/sllurp"'
+          new = '''Homepage = "https://github.com/GuLuLuIt/sllurp"
+          Repository = "https://github.com/GuLuLuIt/sllurp"
+          Documentation = "https://github.com/GuLuLuIt/sllurp/blob/main/QUICKSTART.md"
+          Issues = "https://github.com/GuLuLuIt/sllurp/issues"'''
+          if old in meta:
+              meta = meta.replace(old, new)
+          pyproject.write_text(meta)
+          PY
+
+          rm .github/workflows/license-refresh-temp.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add LICENSE.txt pyproject.toml .github/workflows/license-refresh-temp.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Refresh license notice and project metadata"
+            git push origin HEAD:docs/license-refresh
+          fi
