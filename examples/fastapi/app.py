@@ -99,15 +99,19 @@ async def lifespan(_application: FastAPI):
         task.cancel()
         with suppress(asyncio.CancelledError):
             await task
-        if READER and READER.is_alive():
+        if READER:
             try:
                 READER.disconnect(timeout=2)
-                if READER.is_alive():
-                    READER.hard_disconnect()
-                    READER.join(1)
             except Exception:
                 logger.exception("Error during reader shutdown")
-                READER.hard_disconnect()
+            finally:
+                if READER.is_alive() or READER._socket is not None:
+                    try:
+                        READER.hard_disconnect()
+                    except Exception:
+                        logger.exception("Error during forced reader shutdown")
+                    finally:
+                        READER.join(1)
 
 
 app = FastAPI(lifespan=lifespan)

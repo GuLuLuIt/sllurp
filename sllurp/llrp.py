@@ -430,6 +430,7 @@ class LLRPClient:
         self._request_lock = RLock()
 
         self.rospec = None
+        self._inventory_rospec_added = False
 
         self.last_msg_id = 0
 
@@ -540,6 +541,7 @@ class LLRPClient:
         original_state = self.state
         was_inventorying = original_state == LLRPReaderState.STATE_INVENTORYING
         was_paused = original_state == LLRPReaderState.STATE_PAUSED
+        new_reader_config_applied = False
 
         def restore_old(error):
             try:
@@ -576,7 +578,7 @@ class LLRPClient:
                 finish_restore()
 
             def cleanup_replacement_rospec():
-                if not was_inventorying:
+                if not was_inventorying or not self._inventory_rospec_added:
                     finish_restore()
                     return
                 self.setState(LLRPReaderState.STATE_CONNECTED)
@@ -589,7 +591,7 @@ class LLRPClient:
                     return
                 cleanup_replacement_rospec()
 
-            if plan.requires_reader_config_write:
+            if new_reader_config_applied:
                 self.setState(LLRPReaderState.STATE_CONNECTED)
                 self._suppress_set_config_post_actions = True
                 self.send_SET_READER_CONFIG(onCompletion=old_reader_config_restored)
@@ -616,7 +618,9 @@ class LLRPClient:
                 succeed()
 
         def reader_config_applied(state, is_success, *args):
+            nonlocal new_reader_config_applied
             if is_success:
+                new_reader_config_applied = True
                 finish_new_state()
             else:
                 restore_old("SET_READER_CONFIG failed during apply_config")
@@ -1609,6 +1613,7 @@ class LLRPClient:
             return None
 
         rospec = self.getROSpec(force_new=force_regen_rospec)
+        self._inventory_rospec_added = False
         logger.info("starting inventory")
 
         def enabled_rospec_cb(state, is_success, *args):
@@ -1621,6 +1626,7 @@ class LLRPClient:
 
         def send_added_rospec_cb(state, is_success, *args):
             if is_success:
+                self._inventory_rospec_added = True
                 self.send_ENABLE_ROSPEC(state, rospec, onCompletion=enabled_rospec_cb)
             else:
                 self.panic(None, "ADD_ROSPEC failed")
@@ -1702,6 +1708,8 @@ class LLRPClient:
         def stop_all_rospecs_cb(state, is_success, *args):
             if not is_success:
                 self.panic(None, "DELETE_ROSPEC failed")
+            else:
+                self._inventory_rospec_added = False
             self.rospec = None
             self.generated_config_snapshot = None
             if onCompletion:
@@ -2621,6 +2629,8 @@ class LLRPReaderClient:
             self.llrp._pending_requests.cancel_all()
             self.llrp._deferreds.clear()
             self.llrp.rospec = None
+            self.llrp._inventory_rospec_added = False
+            self.llrp._suppress_set_config_post_actions = False
             self.llrp.generated_config_snapshot = None
             self.llrp.applied_config_snapshot = None
             self.llrp.disconnecting = False
@@ -2720,14 +2730,17 @@ class LLRPReaderClient:
         self.expected_bytes = 0
         self._stop_main_loop.set()
         # stop listening thread.
-        if self._socket:
-            try:
-                self._socket.shutdown(SHUT_RDWR)
-            except Exception:
-                logger.debug("socket shutdown failed", exc_info=True)
-            self._socket.close()
-            self._socket = None
-        self._reset_protocol_session()
+        sock = self._socket
+        self._socket = None
+        try:
+            if sock:
+                try:
+                    sock.shutdown(SHUT_RDWR)
+                except Exception:
+                    logger.debug("socket shutdown failed", exc_info=True)
+                sock.close()
+        finally:
+            self._reset_protocol_session()
 
     @staticmethod
     def disconnect_all_readers(timeout_per_reader=1, force=True):

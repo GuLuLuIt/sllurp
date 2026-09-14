@@ -54,22 +54,28 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
     root = logging.getLogger()
     root.setLevel(loglevel)
 
-    # Reinitialization is common in tests and embedded applications. Close
-    # previous handlers so repeated setup does not leak open log files.
-    previous_handlers = list(root.handlers)
-    root.handlers.clear()
+    # Replace only handlers installed here; embedding applications own theirs.
+    previous_handlers = [
+        handler for handler in root.handlers
+        if getattr(handler, "_sllurp_owned", False)
+    ]
     for handler in previous_handlers:
+        root.removeHandler(handler)
         try:
             handler.close()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug(
+                "failed to close previous logging handler", exc_info=True
+            )
 
+    stream_handler._sllurp_owned = True
     root.addHandler(stream_handler)
 
     if logfile:
         fhandler = logging.FileHandler(logfile)
         fhandler.setFormatter(formatter)
         fhandler.setLevel(loglevel)
+        fhandler._sllurp_owned = True
         root.addHandler(fhandler)
 
 

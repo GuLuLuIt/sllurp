@@ -2,12 +2,13 @@ import logging
 import struct
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 import sllurp.llrp as llrp_module
 import sllurp.llrp_proto as proto
 from sllurp.cli import cli
-from sllurp.llrp import LLRPClient, LLRPMessage, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
+from sllurp.llrp import LLRPClient, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
 from sllurp.log import init_logging
 
 
@@ -34,6 +35,13 @@ class Response:
 
 def _respond(client, name, success=True):
     client.handleMessage(Response(name, client.last_msg_id, success=success))
+
+
+def _message_names(messages):
+    return [
+        proto.get_message_name_from_type(*proto.msg_header_decode(data)[:3])
+        for data in messages
+    ]
 
 
 def _mode_capabilities():
@@ -66,7 +74,6 @@ def test_f01_add_rospec_rejection_rolls_back_without_fatal_exception():
     _respond(client, "DELETE_ACCESSSPEC_RESPONSE")
     _respond(client, "DELETE_ROSPEC_RESPONSE")
     _respond(client, "ADD_ROSPEC_RESPONSE", success=False)
-    _respond(client, "DELETE_ROSPEC_RESPONSE")
     _respond(client, "ADD_ROSPEC_RESPONSE")
     _respond(client, "ENABLE_ROSPEC_RESPONSE")
 
@@ -92,7 +99,7 @@ def test_f01_enable_rejection_deletes_replacement_before_restoring_old_rospec():
     _respond(client, "ADD_ROSPEC_RESPONSE")
     _respond(client, "ENABLE_ROSPEC_RESPONSE")
 
-    names = [LLRPMessage(msgbytes=data).getName() for data in sent]
+    names = _message_names(sent)
     first_enable = names.index("ENABLE_ROSPEC")
     second_add = names.index("ADD_ROSPEC", names.index("ADD_ROSPEC") + 1)
     assert "DELETE_ROSPEC" in names[first_enable + 1 : second_add]
@@ -100,10 +107,18 @@ def test_f01_enable_rejection_deletes_replacement_before_restoring_old_rospec():
     assert client.state == LLRPReaderState.STATE_INVENTORYING
 
 
-def test_f02_default_continuous_inventory_has_finite_report_trigger():
-    rospec = proto.LLRPROSpec(None, 1, antennas=[1], tx_power={1: 1})
-    assert rospec["AISpec"][0]["AISpecStopTrigger"]["AISpecStopTriggerType"] == "Null"
-    assert rospec["ROReportSpec"]["N"] == 1
+@pytest.mark.parametrize("options", [
+    {}, {"duration_sec": 10}, {"report_every_n_tags": 50},
+    {"report_every_n_tags": 50, "report_timeout_ms": 1000},
+])
+def test_f02_reporting_preserves_aispec_boundaries(options):
+    rospec = proto.LLRPROSpec(None, 1, **options)
+    report = rospec["ROReportSpec"]
+    assert report["N"] == 0
+    assert report["ROReportTrigger"] == "Upon_N_Tags_Or_End_Of_AISpec"
+    # Check the wire trigger, not just the generated dictionary.
+    encoded = proto.encode_param("ROReportSpec", report)
+    assert encoded[4:7] == b"\x01\x00\x00"
 
 
 def test_f03_get_reader_config_field_order():
@@ -195,12 +210,6 @@ def test_f10_requested_disconnect_peer_eof_still_cleans_and_notifies(monkeypatch
     assert calls == [1]
 
 
-def test_f11_fastapi_shutdown_uses_public_disconnect_once():
-    source = Path("examples/fastapi/app.py").read_text(encoding="utf-8")
-    assert "READER.llrp.stopPolitely()" not in source
-    assert "READER.disconnect(timeout=2)" in source
-
-
 def test_f12_default_logging_keeps_info_off_stdout(monkeypatch):
     import io
     import sys
@@ -209,11 +218,21 @@ def test_f12_default_logging_keeps_info_off_stdout(monkeypatch):
     err = io.StringIO()
     monkeypatch.setattr(sys, "stdout", out)
     monkeypatch.setattr(sys, "stderr", err)
-    init_logging()
-    logging.getLogger("audit").info("diagnostic")
-    print("machine-data")
-    assert out.getvalue() == "machine-data\n"
-    assert "diagnostic" in err.getvalue()
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    try:
+        init_logging()
+        logging.getLogger("audit").info("diagnostic")
+        print("machine-data")
+        assert out.getvalue() == "machine-data\n"
+        assert "diagnostic" in err.getvalue()
+    finally:
+        for handler in root.handlers[:]:
+            if handler not in handlers:
+                root.removeHandler(handler)
+                handler.close()
+        root.handlers[:] = handlers
+        root.setLevel(level)
 
 
 def test_f13_invalid_access_cli_returns_nonzero():
@@ -224,7 +243,14 @@ def test_f13_invalid_access_cli_returns_nonzero():
 def test_f14_moto_filter_tag_list_uses_dedicated_decoder_and_epc_key():
     info = proto.Param_struct["MotoFilterTagList"]
     assert info["decode"] is proto.decode_MotoFilterTagList
-    assert info["n_fields"] == ["EPC"]
+    assert "EPC" in info["n_fields"]
+    assert "EPCData" not in info["n_fields"]
+    epcs = [bytes.fromhex("00112233445566778899aabb"),
+            bytes.fromhex("112233445566778899aabbcc")]
+    payload = b"\x00" + b"".join(struct.pack("!HHH", 241, 18, 96) + epc for epc in epcs)
+    decoded, _ = info["decode"](payload)
+    assert decoded["Match"] == proto.RuleType_Type2Name[0]
+    assert len(decoded["EPC"]) == 2
 
 
 def test_f15_config_state_is_deeply_detached():

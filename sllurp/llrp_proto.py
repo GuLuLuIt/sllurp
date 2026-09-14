@@ -4855,9 +4855,9 @@ class LLRPROSpec(dict):
                 "ROReportSpec": {
                     "ROReportTrigger": "Upon_N_Tags_Or_End_Of_AISpec",
                     "TagReportContentSelector": tagReportContentSelector,
-                    # Continuous inventory must still have a finite report
-                    # trigger. One tag is the safest interoperable default.
-                    "N": 1,
+                    # N=0 leaves reporting to the AISpec boundary. A positive
+                    # count would also bypass explicit batching/duration triggers.
+                    "N": 0,
                 },
             }
         )

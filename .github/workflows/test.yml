@@ -115,12 +115,14 @@ jobs:
           cache: 'pip'
       - name: Install repository and FastAPI example dependencies
         run: |
-          python -m pip install -e .
+          python -m pip install -e '.[test]'
           python -m pip install -r examples/fastapi/requirements.txt
       - name: Check dependency consistency
         run: python -m pip check
       - name: Import FastAPI example without reader hardware
         run: python -c "import runpy; ns = runpy.run_path('examples/fastapi/app.py'); assert ns['app']; assert ns['INDEX_PATH'].is_file(); assert ns['TAG_QUEUE'].maxsize == 1"
+      - name: Test FastAPI shutdown lifecycle
+        run: pytest -W error tests/test_audit_behavior.py -k fastapi
 
   quality:
     runs-on: ubuntu-latest
