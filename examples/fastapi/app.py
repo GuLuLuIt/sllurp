@@ -6,7 +6,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from queue import Queue
+from queue import Empty, Full, Queue
 from typing import Optional
 
 from fastapi import FastAPI
@@ -37,8 +37,21 @@ PORT = LLRP_DEFAULT_PORT
 # Store the reader and tag data
 READER: LLRPReaderClient | None = None
 TAG_DATA: list[RFIDTag] = []
-TAG_QUEUE = Queue()
+TAG_QUEUE = Queue(maxsize=1)
 ACTIVE_CONNECTIONS = []
+
+
+def _publish_latest_tags(tags):
+    """Queue the newest batch without allowing an unbounded backlog."""
+    while True:
+        try:
+            TAG_QUEUE.put_nowait(tags)
+            return
+        except Full:
+            try:
+                TAG_QUEUE.get_nowait()
+            except Empty:
+                continue
 
 
 async def process_queue():
@@ -126,7 +139,7 @@ def tag_report_cb(_reader, tag_reports):
         for tag in tag_reports
     ]
     serializable_tags = [tag.model_dump() for tag in TAG_DATA]
-    TAG_QUEUE.put(serializable_tags)
+    _publish_latest_tags(serializable_tags)
     logging.info(f"Received {len(tag_reports)} tags")
 
 
