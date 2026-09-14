@@ -3,14 +3,12 @@ import select
 from binascii import hexlify
 from collections import defaultdict
 from socket import (
-    AF_INET,
-    SOCK_STREAM,
     SHUT_RDWR,
     SOL_SOCKET,
     SO_KEEPALIVE,
     IPPROTO_TCP,
     TCP_NODELAY,
-    socket,
+    create_connection,
     error as SocketError,
 )
 from threading import Thread, Event
@@ -1713,10 +1711,11 @@ class LLRPReaderClient:
         if self._socket:
             raise ReaderConfigurationError("Already connected")
         try:
-            self._socket = socket(AF_INET, SOCK_STREAM)
-            # Sllurp original timeout is 3s
+            self._socket = create_connection(
+                (self._host, self._port), timeout=self._socktimeout
+            )
+            # Preserve the configured timeout after connection establishment.
             self._socket.settimeout(self._socktimeout)
-            self._socket.connect((self._host, self._port))
             self._socket.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
             self._socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         except:
