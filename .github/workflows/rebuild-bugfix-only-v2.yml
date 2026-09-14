@@ -1,0 +1,232 @@
+name: Rebuild bugfix-only upstream branch v2
+
+on:
+  push:
+    branches:
+      - automation/rebuild-bugfix-only
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build and validate clean bugfix-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/sllurp/sllurp.git || true
+          git fetch upstream main
+          git checkout -B upstream/bugfixes-only upstream/main
+
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, expected=1):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected}, found {count}: {old!r}")
+              p.write_text(text.replace(old, new))
+
+          proto = "sllurp/llrp_proto.py"
+          core = "sllurp/llrp.py"
+
+          replace_exact(
+              proto,
+              '        "AccessPassword" "MB",\n',
+              '        "AccessPassword",\n        "MB",\n',
+              expected=3,
+          )
+          replace_exact(
+              proto,
+              '    "encode": encode_C1G2Write,\n}\n\n\n# TODO: Use/convert AccessReportTrigger_Name2Type',
+              '    "encode": encode_C1G2BlockWrite,\n}\n\n\n# TODO: Use/convert AccessReportTrigger_Name2Type',
+          )
+          replace_exact(proto, "        tag_filter_mask=[],\n", "        tag_filter_mask=None,\n")
+          replace_exact(
+              proto,
+              "        if frequencies is None:\n            frequencies = {}\n\n        # if reader mode settings are specified, pepper them into this ROSpec\n",
+              "        if frequencies is None:\n            frequencies = {}\n        if tag_filter_mask is None:\n            tag_filter_mask = []\n\n        # if reader mode settings are specified, pepper them into this ROSpec\n",
+          )
+
+          replace_exact(
+              core,
+              "        if DataField < 0 or Privilege > 4:\n",
+              "        if DataField < 0 or DataField > 4:\n",
+          )
+          replace_exact(
+              core,
+              "    def setState(self, newstate, onCompletion=None):\n        assert newstate is not None\n",
+              "    def setState(self, newstate, onCompletion=None):\n        if newstate is None:\n            raise LLRPError(\"reader state cannot be None\")\n",
+          )
+          replace_exact(
+              core,
+              '        assert llrp_msg.msgbytes, "LLRPMessage is empty"\n',
+              '        if not llrp_msg.msgbytes:\n            raise LLRPError("LLRPMessage is empty")\n',
+          )
+          replace_exact(
+              core,
+              '                self.reader_mode["MinTari"]\n                < self.config.tari\n                < self.reader_mode["MaxTari"]\n',
+              '                self.reader_mode["MinTari"]\n                <= self.config.tari\n                <= self.reader_mode["MaxTari"]\n',
+          )
+          replace_exact(
+              core,
+              '                errstr = (\n                    "Requested Tari {} is incompatible with selected "\n                    "mode {}".format(self.config.tari, self.reader_mode)\n                )\n\n        logger.info("using reader mode: %s", self.reader_mode)\n',
+              '                errstr = (\n                    "Requested Tari {} is incompatible with selected "\n                    "mode {}".format(self.config.tari, self.reader_mode)\n                )\n                raise ReaderConfigurationError(errstr)\n\n        logger.info("using reader mode: %s", self.reader_mode)\n',
+          )
+          replace_exact(
+              core,
+              "        except:\n            self._socket = None\n            raise\n        logger.info(\"connected to %s (:%s)\", self._host, self._port)\n",
+              "        except Exception:\n            sock = self._socket\n            if sock is not None:\n                try:\n                    sock.close()\n                except Exception:\n                    logger.debug(\"socket cleanup failed\", exc_info=True)\n            self._socket = None\n            raise\n        logger.info(\"connected to %s (:%s)\", self._host, self._port)\n",
+          )
+
+          # Cleanup/callback paths should not swallow KeyboardInterrupt/SystemExit.
+          for filename in (
+              "sllurp/llrp.py",
+              "sllurp/lock.py",
+              "sllurp/verb/access.py",
+              "sllurp/verb/inventory.py",
+              "sllurp/verb/log.py",
+              "sllurp/verb/reset.py",
+          ):
+              p = Path(filename)
+              lines = p.read_text().splitlines(keepends=True)
+              out = []
+              for line in lines:
+                  if line.strip() == "except:":
+                      indent = line[: len(line) - len(line.lstrip())]
+                      ending = "\n" if line.endswith("\n") else ""
+                      out.append(f"{indent}except Exception:{ending}")
+                  else:
+                      out.append(line)
+              p.write_text("".join(out))
+          PY
+
+          cat > tests/test_bugfix_regressions.py <<'PYTEST'
+          import ast
+          import inspect
+          from pathlib import Path
+          from types import SimpleNamespace
+
+          import pytest
+
+          import sllurp.llrp as llrp
+          from sllurp.llrp import C1G2LockPayload, LLRPClient, LLRPReaderConfig
+          from sllurp.llrp_errors import ReaderConfigurationError
+          from sllurp.llrp_proto import LLRPError, LLRPROSpec, Param_struct
+
+
+          def test_c1g2_access_fields_are_separate():
+              for name in ("C1G2Read", "C1G2Write", "C1G2BlockWrite"):
+                  fields = Param_struct[name]["fields"]
+                  assert "AccessPassword" in fields
+                  assert "MB" in fields
+                  assert "AccessPasswordMB" not in fields
+
+
+          def test_c1g2_block_write_uses_block_write_encoder():
+              assert Param_struct["C1G2BlockWrite"]["encode"].__name__ == "encode_C1G2BlockWrite"
+
+
+          def test_rospec_tag_filter_default_is_not_mutable():
+              assert inspect.signature(LLRPROSpec).parameters["tag_filter_mask"].default is None
+
+
+          @pytest.mark.parametrize("data_field", [-1, 5, 999])
+          def test_lock_payload_rejects_invalid_data_field(data_field):
+              with pytest.raises(ValueError, match="DataField"):
+                  C1G2LockPayload(Privilege=0, DataField=data_field)
+
+
+          def test_set_state_none_raises_without_assert_dependency():
+              client = object.__new__(LLRPClient)
+              with pytest.raises(LLRPError, match="state cannot be None"):
+                  client.setState(None)
+
+
+          def test_send_message_empty_raises_llrp_error(monkeypatch):
+              client = object.__new__(LLRPClient)
+              client.last_msg_id = 0
+              client.transport_tx_write = lambda data: None
+              monkeypatch.setattr(llrp, "LLRPMessage", lambda msgdict: SimpleNamespace(msgbytes=b""))
+              with pytest.raises(LLRPError, match="LLRPMessage is empty"):
+                  client.sendMessage({"KEEPALIVE_ACK": {}})
+
+
+          def _capabilities(min_tari=6250, max_tari=25000):
+              return {
+                  "GeneralDeviceCapabilities": {"MaxNumberOfAntennaSupported": 1},
+                  "RegulatoryCapabilities": {
+                      "UHFBandCapabilities": {
+                          "TransmitPowerLevelTableEntry": [{"Index": 1, "TransmitPowerValue": 3000}],
+                          "UHFC1G2RFModeTable": {
+                              "UHFC1G2RFModeTableEntry": [{
+                                  "ModeIdentifier": 1,
+                                  "MinTari": min_tari,
+                                  "MaxTari": max_tari,
+                              }]
+                          },
+                      }
+                  },
+              }
+
+
+          @pytest.mark.parametrize("tari", [6250, 25000])
+          def test_tari_boundaries_are_valid(tari):
+              config = LLRPReaderConfig({"antennas": [1], "tx_power": 1, "mode_identifier": 1, "tari": tari})
+              client = LLRPClient(config)
+              client.parseCapabilities(_capabilities())
+              assert client.reader_mode["ModeIdentifier"] == 1
+
+
+          @pytest.mark.parametrize("tari", [6249, 25001])
+          def test_out_of_range_tari_is_rejected(tari):
+              config = LLRPReaderConfig({"antennas": [1], "tx_power": 1, "mode_identifier": 1, "tari": tari})
+              client = LLRPClient(config)
+              with pytest.raises(ReaderConfigurationError, match="Requested Tari"):
+                  client.parseCapabilities(_capabilities())
+
+
+          def test_targeted_library_paths_have_no_bare_except_handlers():
+              root = Path(llrp.__file__).resolve().parent
+              paths = [
+                  root / "llrp.py",
+                  root / "lock.py",
+                  root / "verb" / "access.py",
+                  root / "verb" / "inventory.py",
+                  root / "verb" / "log.py",
+                  root / "verb" / "reset.py",
+              ]
+              offenders = []
+              for path in paths:
+                  tree = ast.parse(path.read_text())
+                  for node in ast.walk(tree):
+                      if isinstance(node, ast.Try):
+                          offenders.extend(
+                              f"{path.name}:{handler.lineno}"
+                              for handler in node.handlers
+                              if handler.type is None
+                          )
+              assert offenders == []
+          PYTEST
+
+          sed -i 's/^          //' tests/test_bugfix_regressions.py
+
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+          pytest -q
+          python -m compileall -q sllurp tests
+
+          git config user.name "GuLuLuIt"
+          git config user.email "327667513+GuLuLuIt@users.noreply.github.com"
+          git add sllurp tests/test_bugfix_regressions.py
+          git commit -m "Fix core LLRP correctness defects"
+          git push origin upstream/bugfixes-only --force
+          git push origin upstream/bugfixes-only:upstream/all-improvements --force
