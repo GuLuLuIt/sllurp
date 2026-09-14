@@ -18,6 +18,16 @@ Or install the published package::
 
     python -m pip install sllurp
 
+Runnable examples
+-----------------
+
+Use the `Example guide <examples.rst>`_ for small programs covering Python
+inventory, timed deduplication, RF telemetry, live runtime configuration,
+generic HTTP/HTTPS management, Zebra management, Impinj R700/R720 management,
+Honeywell/Intermec DCWS, CLI/TLS recipes, and web-framework integration.
+
+The source files are indexed directly in `examples/README.md <../examples/README.md>`_.
+
 Feature guide
 -------------
 
@@ -25,6 +35,7 @@ Feature guide
 Topic                            Documentation
 ===============================  ================================================
 First install and first read     `Quick Start <../QUICKSTART.md>`_
+Runnable examples                `examples.rst <examples.rst>`_
 Reader compatibility             `readers.rst <readers.rst>`_
 Secure LLRP / TLS                `secure_llrp.rst <secure_llrp.rst>`_
 Reader management + dedup        `reader-management.rst <reader-management.rst>`_
