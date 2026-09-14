@@ -7,27 +7,23 @@ for filename in ("sllurp/llrp.py", "sllurp/secure.py"):
     if "    socket,\n" not in text:
         raise SystemExit(f"socket import target not found in {filename}")
     text = text.replace("    socket,\n", "    create_connection,\n", 1)
-    old = '''            family = AF_INET6 if ":" in self._host else AF_INET
+
+    old_socket = '''            family = AF_INET6 if ":" in self._host else AF_INET
             raw_socket = socket(family, SOCK_STREAM)
-            if self.config.socket_receive_buffer_bytes is not None:
-                raw_socket.setsockopt(
-                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
-                )
-            raw_socket.settimeout(self._socktimeout)
-            raw_socket.connect((self._host, self._port))
 '''
-    new = '''            raw_socket = create_connection(
+    new_socket = '''            raw_socket = create_connection(
                 (self._host, self._port), timeout=self._socktimeout
             )
-            if self.config.socket_receive_buffer_bytes is not None:
-                raw_socket.setsockopt(
-                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
-                )
-            raw_socket.settimeout(self._socktimeout)
 '''
-    if old not in text:
+    if old_socket not in text:
+        raise SystemExit(f"socket creation target not found in {filename}")
+    text = text.replace(old_socket, new_socket, 1)
+
+    old_connect = "            raw_socket.connect((self._host, self._port))\n"
+    if old_connect not in text:
         raise SystemExit(f"connect target not found in {filename}")
-    path.write_text(text.replace(old, new, 1))
+    text = text.replace(old_connect, "", 1)
+    path.write_text(text)
 
 Path("tests/test_address_resolution.py").write_text(
     '''import sllurp.llrp as llrp_module
