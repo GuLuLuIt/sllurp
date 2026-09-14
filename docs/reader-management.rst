@@ -1,6 +1,21 @@
 Reader management and tag deduplication
 =======================================
 
+Start here
+----------
+
+For installation on Windows, Linux distributions, and macOS plus first-reader
+setup, start with the `Quick Start <../QUICKSTART.md>`_.  The full documentation
+map is in `docs/index.rst <index.rst>`_.
+
+The fastest timed-deduplication smoke test is::
+
+    sllurp inventory --dedup-seconds 2 --dedup-backend auto -a 0 READER_HOST
+
+Reader web management is a separate protocol from LLRP inventory.  Install this
+fork's current ``main`` branch when you need the management adapters documented
+on this page.
+
 Sllurp's core protocol is LLRP.  LLRP is standardized across compatible RFID
 readers, while each vendor's web-management API is different.  Sllurp therefore
 keeps LLRP control and HTTP/HTTPS management separate.
