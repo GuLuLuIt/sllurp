@@ -1,4 +1,5 @@
 import time
+from threading import Event
 
 from sllurp.llrp import LLRPReaderConfig
 from sllurp.llrp_runtime import (
@@ -60,15 +61,21 @@ def test_pending_request_registry_matches_exact_message_id():
 def test_pending_request_registry_timeout_is_deterministic():
     registry = PendingRequestRegistry()
     expired = []
+    timeout_called = Event()
+
+    def on_timeout(pending):
+        expired.append(pending)
+        timeout_called.set()
+
     registry.register(
         "ADD_ROSPEC_RESPONSE",
         22,
         callback="cb",
         timeout=0.02,
-        on_timeout=expired.append,
+        on_timeout=on_timeout,
     )
 
-    time.sleep(0.08)
+    assert timeout_called.wait(1.0)
     assert len(registry) == 0
     assert [pending.message_id for pending in expired] == [22]
     assert registry.is_stale("ADD_ROSPEC_RESPONSE", 22)
