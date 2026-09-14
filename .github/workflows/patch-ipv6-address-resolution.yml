@@ -1,0 +1,68 @@
+name: Apply IPv6 address-resolution fix
+
+on:
+  push:
+    branches:
+      - fix/ipv6-address-resolution
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/ipv6-address-resolution
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Patch and test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          for filename in ('sllurp/llrp.py', 'sllurp/secure.py'):
+              path = Path(filename)
+              text = path.read_text()
+              text = text.replace('    AF_INET,\n    AF_INET6,\n', '', 1)
+              if '    socket,\n' not in text:
+                  raise SystemExit(f'socket import target not found in {filename}')
+              text = text.replace('    socket,\n', '    create_connection,\n', 1)
+              old = '''            family = AF_INET6 if ":" in self._host else AF_INET
+            raw_socket = socket(family, SOCK_STREAM)
+            if self.config.socket_receive_buffer_bytes is not None:
+                raw_socket.setsockopt(
+                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
+                )
+            raw_socket.settimeout(self._socktimeout)
+            raw_socket.connect((self._host, self._port))
+'''
+              new = '''            raw_socket = create_connection(
+                (self._host, self._port), timeout=self._socktimeout
+            )
+            if self.config.socket_receive_buffer_bytes is not None:
+                raw_socket.setsockopt(
+                    SOL_SOCKET, SO_RCVBUF, self.config.socket_receive_buffer_bytes
+                )
+            raw_socket.settimeout(self._socktimeout)
+'''
+              if old not in text:
+                  raise SystemExit(f'connect target not found in {filename}')
+              path.write_text(text.replace(old, new, 1))
+
+          Path('tests/test_address_resolution.py').write_text('''import sllurp.llrp as llrp_module\nimport sllurp.secure as secure_module\nfrom sllurp.llrp import LLRPReaderClient\nfrom sllurp.secure import LLRPTLSReaderClient\n\n\nclass FakeSocket:\n    def __init__(self):\n        self.options = []\n        self.timeout = None\n        self.closed = False\n\n    def setsockopt(self, *args):\n        self.options.append(args)\n\n    def settimeout(self, value):\n        self.timeout = value\n\n    def close(self):\n        self.closed = True\n\n\nclass FakeSSLContext:\n    def __init__(self):\n        self.wrap_calls = []\n\n    def wrap_socket(self, sock, *, server_hostname):\n        self.wrap_calls.append((sock, server_hostname))\n        return sock\n\n\ndef test_reader_client_uses_resolver_aware_create_connection(monkeypatch):\n    calls = []\n    sock = FakeSocket()\n\n    def fake_create_connection(address, timeout):\n        calls.append((address, timeout))\n        return sock\n\n    monkeypatch.setattr(llrp_module, "create_connection", fake_create_connection)\n    reader = LLRPReaderClient("reader.example", 5084, timeout=2.5)\n\n    reader._connect_socket()\n\n    assert calls == [(("reader.example", 5084), 2.5)]\n    assert reader._socket is sock\n\n\ndef test_secure_reader_uses_resolver_aware_create_connection(monkeypatch):\n    calls = []\n    sock = FakeSocket()\n    context = FakeSSLContext()\n\n    def fake_create_connection(address, timeout):\n        calls.append((address, timeout))\n        return sock\n\n    monkeypatch.setattr(secure_module, "create_connection", fake_create_connection)\n    reader = LLRPTLSReaderClient(\n        "reader.example", 5085, timeout=3.0, ssl_context=context\n    )\n\n    reader._connect_socket()\n\n    assert calls == [(("reader.example", 5085), 3.0)]\n    assert context.wrap_calls == [(sock, "reader.example")]\n    assert reader._socket is sock\n''')
+          PY
+          python -m pip install -e '.[test]'
+          pytest -q tests/test_address_resolution.py
+          ruff check sllurp/llrp.py sllurp/secure.py tests/test_address_resolution.py --select F401,F841,E9
+      - name: Commit patch
+        run: |
+          rm .github/workflows/patch-ipv6-address-resolution.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add sllurp/llrp.py sllurp/secure.py tests/test_address_resolution.py .github/workflows/patch-ipv6-address-resolution.yml
+          git commit -m "Use resolver-aware LLRP connections"
+          git push origin HEAD:fix/ipv6-address-resolution
