@@ -1,13 +1,22 @@
 Sllurp documentation
 ====================
 
-Start here
-----------
+Quick Start
+-----------
 
-New users should begin with the `Quick Start <../QUICKSTART.md>`_.  It includes
-Windows, Ubuntu/Debian, Fedora/RHEL-family, Arch/Manjaro, openSUSE, and macOS
-installation, first inventory, Secure LLRP, deduplication, tag access, logging,
-reader management, runtime configuration, and RF telemetry examples.
+New users should begin with the `Quick Start <../QUICKSTART.md>`_. It covers
+Windows, Ubuntu/Debian, Fedora/RHEL/Rocky/AlmaLinux, Arch/Manjaro, openSUSE,
+macOS, installation, first inventory, Secure LLRP, deduplication, tag access,
+logging, reader management, runtime configuration, RF telemetry, and
+troubleshooting.
+
+Install the latest code from this repository::
+
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+
+Or install the published package::
+
+    python -m pip install sllurp
 
 Feature guide
 -------------
@@ -41,7 +50,7 @@ Command-line map
 ``sllurp reset``
     Return a reader to a clean LLRP state after an interrupted/debug session.
 
-Always use the installed command's help as the authoritative option list::
+Use the installed command's help as the authoritative option list::
 
     sllurp --help
     sllurp inventory --help
@@ -52,17 +61,7 @@ Always use the installed command's help as the authoritative option list::
 Protocol boundaries
 -------------------
 
-Sllurp's core reader-control protocol is LLRP.  Plain LLRP normally uses TCP
-5084 and Secure LLRP normally uses TCP 5085.  Vendor HTTP/HTTPS/SOAP reader
+Sllurp's core reader-control protocol is LLRP. Plain LLRP normally uses TCP
+5084 and Secure LLRP normally uses TCP 5085. Vendor HTTP/HTTPS/SOAP reader
 management is separate from LLRP inventory and is only used through documented
 vendor management APIs.
-
-Full-feature fork installation
-------------------------------
-
-The PyPI package can lag this fork.  To install the feature set documented here,
-install directly from this repository's ``main`` branch::
-
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
-
-See the `Quick Start <../QUICKSTART.md>`_ for operating-system-specific setup.
