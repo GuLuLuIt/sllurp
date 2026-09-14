@@ -2,7 +2,7 @@
 
 Use this guide to go from a new computer to a working LLRP inventory, then enable the features you need: Secure LLRP/TLS, timed deduplication, reader management, runtime configuration, RF telemetry, Impinj extensions, tag access, logging, and multi-reader inventory.
 
-For the latest code in this repository, install from `GuLuLuIt/sllurp` `main`. The published package can also be installed from PyPI.
+For the features documented in this repository, install from `GuLuLuIt/sllurp` `main`. The `sllurp` package on PyPI is the upstream distribution and is not an equivalent installation path for fork-specific features.
 
 ## 1. Requirements
 
@@ -41,16 +41,11 @@ python -m pip install --upgrade pip
 python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 ```
 
-Published package instead:
-
-```powershell
-python -m pip install sllurp
-```
-
 If script activation is restricted, use the environment directly:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+.\.venv\Scripts\sllurp.exe --version
 .\.venv\Scripts\sllurp.exe --help
 ```
 
@@ -124,8 +119,8 @@ cd sllurp
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[test]"
-pytest -q
+python -m pip install -e ".[dev]"
+pytest -W error
 ```
 
 On Windows, activate with `.\.venv\Scripts\Activate.ps1`.
@@ -133,9 +128,12 @@ On Windows, activate with `.\.venv\Scripts\Activate.ps1`.
 ## 9. Verify installation
 
 ```bash
+sllurp --version
 sllurp --help
 sllurp inventory --help
 ```
+
+The source tree currently identifies as version **3.1.0**. If `sllurp --version` reports a different version, confirm which environment and executable are active before troubleshooting reader behavior.
 
 ## 10. First inventory
 
@@ -478,6 +476,7 @@ sllurp --debug --logfile sllurp.log inventory READER_HOST
 For every CLI command, `--help` is authoritative for the installed version:
 
 ```bash
+sllurp --version
 sllurp --help
 sllurp inventory --help
 sllurp access --help

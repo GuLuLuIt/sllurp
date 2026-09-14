@@ -2,13 +2,9 @@
 Sllurp — production-focused Python LLRP client for RFID readers
 =================================================================
 
-.. image:: https://img.shields.io/pypi/v/sllurp.svg
-   :target: https://pypi.org/project/sllurp/
-   :alt: PyPI
-
-.. image:: https://img.shields.io/pypi/pyversions/sllurp.svg
-   :target: https://pypi.org/project/sllurp/
-   :alt: Python versions
+.. image:: https://img.shields.io/badge/python-3.10--3.14-blue.svg
+   :target: https://www.python.org/
+   :alt: Python 3.10 through 3.14
 
 .. image:: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml/badge.svg?branch=main
    :target: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml
@@ -32,16 +28,18 @@ Arch/Manjaro, openSUSE, macOS, virtual environments, installation, first
 inventory, TLS, deduplication, tag access, logging, management APIs, runtime
 configuration, RF telemetry, and troubleshooting.
 
-Install the latest code from this repository::
+Install the feature set documented in this repository::
 
     python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 
-Or install the published package::
+Verify the installed command::
 
-    python -m pip install sllurp
+    sllurp --version
 
-The PyPI package can lag fork-specific functionality. Use the GitHub install
-above when you need the features documented in this repository.
+The ``sllurp`` package on PyPI is the upstream distribution, not this fork.
+Use ``pip install sllurp`` only when you intentionally want the upstream
+release. For the features documented on this page, use the GitHub install
+above.
 
 First inventory::
 
@@ -286,9 +284,11 @@ Clone and install in editable mode with the complete developer toolset::
     python -m pip install -e ".[dev]"
     pytest -W error
 
-Python 3.10 through 3.14 are supported by the current project metadata. See
-`CONTRIBUTING.md <CONTRIBUTING.md>`_ for the full local quality gate and
-hardware/interoperability contribution guidance.
+Python 3.10 through 3.14 are supported by the current project metadata and CI.
+The Linux matrix covers every supported Python version; Windows and macOS run
+the full suite on the current CI Python. See `CONTRIBUTING.md <CONTRIBUTING.md>`_
+for the full local quality gate and hardware/interoperability contribution
+guidance.
 
 Project maintenance
 -------------------

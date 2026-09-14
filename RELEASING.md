@@ -5,7 +5,7 @@ This fork currently installs from GitHub and has not published a GitHub release.
 ## Release checklist
 
 1. Ensure `main` is green and up to date.
-2. Choose a semantic version and update `sllurp/version.py`.
+2. Confirm the intended semantic version in `sllurp/version.py`; update it before the release-preparation PR if needed.
 3. Move relevant entries from `CHANGELOG.md` `Unreleased` into a dated release section.
 4. Run the full local gate:
 
@@ -19,9 +19,10 @@ This fork currently installs from GitHub and has not published a GitHub release.
    codespell
    python -m build
    python -m twine check dist/*
+   sllurp --version
    ```
 
-5. Verify the built wheel in a clean virtual environment and run `sllurp --help`.
+5. Verify the built wheel in a clean virtual environment and confirm `sllurp --version` reports the release version.
 6. Create and merge a release-preparation pull request.
 7. Tag the exact release commit, for example `v3.1.0`.
 8. Let the release-build workflow build and validate the source distribution and wheel.
@@ -35,4 +36,4 @@ If this fork needs independent distribution without upstream PyPI ownership, use
 
 ## Version consistency
 
-A release tag, `sllurp/version.py`, wheel metadata, changelog section, and GitHub Release should all agree on the same version. Do not tag a feature-bearing release while leaving the package version at an inherited upstream value.
+A release tag, `sllurp/version.py`, `sllurp --version`, wheel metadata, changelog section, and GitHub Release should all agree on the same version. Do not tag a feature-bearing release while leaving the package version at an inherited upstream value.
