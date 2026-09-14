@@ -20,15 +20,46 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - name: Verify release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import os
+          from sllurp.version import __version__
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          expected = f"v{__version__}"
+          if tag != expected:
+              raise SystemExit(
+                  f"Release tag {tag!r} does not match package version {__version__!r}; "
+                  f"expected {expected!r}."
+              )
+          print(f"Release tag {tag} matches package version {__version__}.")
+          PY
       - name: Install build tools
         run: python -m pip install --upgrade build twine
       - name: Build source and wheel distributions
         run: python -m build
       - name: Validate distribution metadata
         run: python -m twine check dist/*
+      - name: Verify built artifact version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from sllurp.version import __version__
+
+          artifacts = [path.name for path in Path("dist").iterdir()]
+          expected_prefix = f"sllurp-{__version__}"
+          if not artifacts or not all(name.startswith(expected_prefix) for name in artifacts):
+              raise SystemExit(
+                  f"Built artifacts {artifacts!r} do not all match {expected_prefix!r}."
+              )
+          print(f"Validated release artifacts: {artifacts}")
+          PY
       - name: Upload validated distributions
         uses: actions/upload-artifact@v5
         with:
           name: python-package-distributions
           path: dist/
           if-no-files-found: error
+          retention-days: 14
