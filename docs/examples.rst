@@ -20,8 +20,7 @@ Zebra RM / IoT management           `zebra_management.py <../examples/zebra_mana
 Impinj R700/R720 management         `impinj_management.py <../examples/impinj_management.py>`_
 Honeywell/Intermec DCWS             `intermec_management.py <../examples/intermec_management.py>`_
 TLS, access, logging, multi-reader  `CLI recipes <../examples/cli-recipes.md>`_
-FastAPI integration                 `FastAPI demo <../examples/fastapi/README.md>`_
-Tornado/WebSocket integration       `Tornado demo <../examples/tornado/README.md>`_
+FastAPI / WebSocket integration     `FastAPI demo <../examples/fastapi/README.md>`_
 ==================================  =====================================================
 
 Choosing the right example
@@ -59,6 +58,7 @@ Validation
 ----------
 
 The repository CI compiles Python under ``examples/`` along with the package
-and runs the normal static/security gates. Hardware-dependent behavior still
-requires the target reader/model/firmware because examples cannot emulate a
-reader's vendor API or RF environment.
+and runs the normal static/security gates. The FastAPI example also gets a
+clean dependency/import smoke test on supported Python endpoints. Hardware-
+dependent behavior still requires the target reader/model/firmware because
+examples cannot emulate a reader's vendor API or RF environment.

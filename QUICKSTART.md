@@ -429,7 +429,7 @@ See [Reader compatibility](docs/readers.rst).
 
 ## 24. Runnable examples
 
-The [`examples/README.md`](examples/README.md) index groups the runnable examples by feature. It includes Python inventory, deduplication, RF telemetry, runtime configuration, generic and vendor management, CLI recipes, FastAPI, and Tornado/WebSocket integration.
+The [`examples/README.md`](examples/README.md) index groups the runnable examples by feature. It includes Python inventory, deduplication, RF telemetry, runtime configuration, generic and vendor management, CLI recipes, and a FastAPI/WebSocket integration demo.
 
 The documentation-oriented map is in [`docs/examples.rst`](docs/examples.rst).
 

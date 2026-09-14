@@ -77,6 +77,15 @@ Use the installed command's help as the authoritative option list::
     sllurp log --help
     sllurp reset --help
 
+Protocol references
+-------------------
+
+Normative LLRP specifications are maintained by GS1. Use the `current GS1 LLRP
+standard <https://ref.gs1.org/standards/llrp/>`_ and the `GS1 LLRP archive
+<https://ref.gs1.org/standards/llrp/archive>`_ instead of repository-bundled PDF
+copies. Keeping standards at their authoritative source avoids stale or
+duplicated multi-megabyte documents in the source tree.
+
 Protocol boundaries
 -------------------
 

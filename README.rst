@@ -92,7 +92,7 @@ documentation pages.
 * `Impinj R700/R720 management <examples/impinj_management.py>`_
 * `Honeywell/Intermec DCWS <examples/intermec_management.py>`_
 * `CLI recipes for TLS, tag access, logging, multi-reader, and Impinj extensions <examples/cli-recipes.md>`_
-* `FastAPI demo <examples/fastapi/README.md>`_ and `Tornado demo <examples/tornado/README.md>`_
+* `FastAPI/WebSocket demo <examples/fastapi/README.md>`_
 
 Common examples
 ---------------
@@ -303,9 +303,10 @@ Project maintenance
 License and lineage
 -------------------
 
-Sllurp is distributed under ``GPL-3.0-only``. See ``LICENSE.txt`` for the
-canonical GPLv3 terms and ``NOTICE.md`` for project-specific attribution and
-fork information. This repository is a modified fork of
+Repository-level metadata follows upstream and identifies ``GPL-3.0-only``.
+See ``LICENSE.txt`` for the canonical repository license text and ``NOTICE.md``
+for attribution plus the inherited file-level license-notice caveat. This
+repository is a modified fork of
 `the upstream sllurp project <https://github.com/sllurp/sllurp>`_.
 
 Support and bug reports

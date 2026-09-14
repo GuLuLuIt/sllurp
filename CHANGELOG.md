@@ -20,13 +20,19 @@ All notable changes to this fork should be documented here. This project uses se
 - Windows and macOS CI coverage in addition to the Linux/Python-version matrix.
 - Regression checks for broken internal links across repository documentation.
 - Release-build guards that require `vX.Y.Z` tags and built artifacts to match the package version.
+- Repository-hygiene regression coverage for obsolete binary/reference artifacts and example dependency drift.
+- FastAPI example smoke testing against the repository package on Python 3.10 and 3.14.
 
 ### Changed
 
 - The source-tree version is now `3.1.0`, distinguishing this feature-bearing fork from the upstream `3.0.5` baseline.
 - Installation documentation now clearly distinguishes this repository from the upstream PyPI `sllurp` distribution.
-- CI validates Python 3.10 through 3.14 on Linux, full tests on Windows and macOS, package installation, dependency consistency, coverage, static checks, security checks, documentation links, and example compilation.
+- CI validates Python 3.10 through 3.14 on Linux, full tests on Windows and macOS, package installation, dependency consistency, coverage, static checks, security checks, documentation links, example compilation, and the maintained FastAPI example.
 - Repository/project metadata now points to this fork where fork-specific functionality is documented.
+- Removed unreferenced capability dumps, bundled LLRP standard PDFs, a legacy Impinj R1000 XML dump, obsolete `bin/` wrappers, and the superseded Tornado demo.
+- Simplified the FastAPI example to repository-first installation, environment-based configuration, same-origin browser access, and POST actions for state changes.
+- Renamed process-oriented regression-test files to feature-oriented names without changing their test coverage.
+- Clarified in `NOTICE.md` that inherited file-level license notices are preserved and are not overridden by repository metadata.
 
 ### Fixed
 

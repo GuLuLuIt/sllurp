@@ -37,8 +37,7 @@ sllurp access --help
 | Impinj R700/R720 management | [`impinj_management.py`](impinj_management.py) |
 | Honeywell/Intermec IF-series DCWS | [`intermec_management.py`](intermec_management.py) |
 | CLI recipes: TLS, access, logging, multi-reader, Impinj extensions | [`cli-recipes.md`](cli-recipes.md) |
-| FastAPI web application | [`fastapi/`](fastapi/) |
-| Tornado websocket demo | [`tornado/`](tornado/) |
+| FastAPI web application / WebSocket demo | [`fastapi/`](fastapi/) |
 
 ## Safety and protocol boundaries
 
