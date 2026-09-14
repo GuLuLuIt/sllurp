@@ -1,0 +1,68 @@
+Sllurp documentation
+====================
+
+Start here
+----------
+
+New users should begin with the `Quick Start <../QUICKSTART.md>`_.  It includes
+Windows, Ubuntu/Debian, Fedora/RHEL-family, Arch/Manjaro, openSUSE, and macOS
+installation, first inventory, Secure LLRP, deduplication, tag access, logging,
+reader management, runtime configuration, and RF telemetry examples.
+
+Feature guide
+-------------
+
+===============================  ================================================
+Topic                            Documentation
+===============================  ================================================
+First install and first read     `Quick Start <../QUICKSTART.md>`_
+Reader compatibility             `readers.rst <readers.rst>`_
+Secure LLRP / TLS                `secure_llrp.rst <secure_llrp.rst>`_
+Reader management + dedup        `reader-management.rst <reader-management.rst>`_
+Impinj R700/R720 management      `impinj-management.rst <impinj-management.rst>`_
+Honeywell / Intermec DCWS        `intermec-management.rst <intermec-management.rst>`_
+RF telemetry / antenna identity  `rf-telemetry.rst <rf-telemetry.rst>`_
+Dynamic runtime configuration    `runtime-state.rst <runtime-state.rst>`_
+===============================  ================================================
+
+Command-line map
+----------------
+
+``sllurp inventory``
+    Inventory tags, select antennas, power, session, Tari, mode, frequencies,
+    reconnect behavior, timed deduplication, Impinj extensions, and Secure LLRP.
+
+``sllurp access``
+    Read or write tag memory using LLRP AccessSpecs.
+
+``sllurp log``
+    Stream tag observations to a file or stdout.
+
+``sllurp reset``
+    Return a reader to a clean LLRP state after an interrupted/debug session.
+
+Always use the installed command's help as the authoritative option list::
+
+    sllurp --help
+    sllurp inventory --help
+    sllurp access --help
+    sllurp log --help
+    sllurp reset --help
+
+Protocol boundaries
+-------------------
+
+Sllurp's core reader-control protocol is LLRP.  Plain LLRP normally uses TCP
+5084 and Secure LLRP normally uses TCP 5085.  Vendor HTTP/HTTPS/SOAP reader
+management is separate from LLRP inventory and is only used through documented
+vendor management APIs.
+
+Full-feature fork installation
+------------------------------
+
+The PyPI package can lag this fork.  To install the feature set documented here,
+install directly from this repository's ``main`` branch::
+
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+
+See the `Quick Start <../QUICKSTART.md>`_ for operating-system-specific setup.
