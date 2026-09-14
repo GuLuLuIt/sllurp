@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a focused improvement or reader capability
+title: "[Feature]: "
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What is difficult or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful public behavior or API.
+    validations:
+      required: true
+  - type: input
+    id: reader
+    attributes:
+      label: Reader model / firmware, if hardware-specific
+      placeholder: "Impinj R700 / firmware ..."
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Vendor documentation or interoperability evidence
+      description: Link stable vendor docs/specs or describe reproducible hardware evidence. Do not include credentials or private material.
+    validations:
+      required: false
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility considerations
+      description: Note protocol, firmware, antenna, TLS, API, or backward-compatibility constraints.
+    validations:
+      required: false

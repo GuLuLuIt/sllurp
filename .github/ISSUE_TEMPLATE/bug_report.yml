@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible Sllurp defect
+title: "[Bug]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include passwords, tokens, private keys, production secrets, or sensitive tag/customer data. Security vulnerabilities belong in the private process described in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Sllurp version or commit
+      placeholder: "3.0.5 or commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python and operating system
+      placeholder: "Python 3.12 / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: reader
+    attributes:
+      label: Reader model and firmware
+      placeholder: "Zebra FX9600 / firmware ..."
+    validations:
+      required: false
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection or feature area
+      options:
+        - Plain LLRP
+        - Secure LLRP / TLS
+        - Tag access
+        - Deduplication
+        - RF telemetry
+        - Runtime configuration
+        - Reader HTTP/HTTPS/SOAP management
+        - Packaging / installation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Exact command or smallest Python example that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+      description: Remove credentials, tokens, private keys, production addresses, and sensitive tag/customer data.
+    validations:
+      required: true

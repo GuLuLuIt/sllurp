@@ -1,2 +1,10 @@
-include sllurp/*.py
+recursive-include sllurp *.py
 include README.rst
+include QUICKSTART.md
+include LICENSE.txt
+include NOTICE.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include SECURITY.md
+include SUPPORT.md
+include RELEASING.md

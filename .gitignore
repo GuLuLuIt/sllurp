@@ -35,14 +35,29 @@ var/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit test / coverage / tool caches
 htmlcov/
 .tox/
 .coverage
-.cache
-nosetests.xml
+.coverage.*
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
 coverage.xml
-/.pytest_cache/
+nosetests.xml
+
+# Local profiling / databases
+*.prof
+*.sqlite
+*.sqlite3
+
+# Editors / OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
 
 # Translations
 *.mo
@@ -55,7 +70,7 @@ coverage.xml
 # Rope
 .ropeproject
 
-# Django stuff:
+# Django stuff
 *.log
 *.pot
 

@@ -14,9 +14,9 @@ Sllurp — production-focused Python LLRP client for RFID readers
    :target: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml
    :alt: Tests
 
-.. image:: https://img.shields.io/badge/license-GPL--3.0-blue.svg
+.. image:: https://img.shields.io/badge/license-GPL--3.0--only-blue.svg
    :target: LICENSE.txt
-   :alt: GPL-3.0
+   :alt: GPL-3.0-only
 
 Sllurp is a pure-Python client and library for **LLRP-based RFID readers** with
 secure LLRP/TLS, timed tag deduplication, reader-management adapters, runtime
@@ -39,6 +39,9 @@ Install the latest code from this repository::
 Or install the published package::
 
     python -m pip install sllurp
+
+The PyPI package can lag fork-specific functionality. Use the GitHub install
+above when you need the features documented in this repository.
 
 First inventory::
 
@@ -274,25 +277,40 @@ checklist.
 Development
 -----------
 
-Clone and install in editable mode::
+Clone and install in editable mode with the complete developer toolset::
 
     git clone https://github.com/GuLuLuIt/sllurp.git
     cd sllurp
     python3 -m venv .venv
     source .venv/bin/activate
-    python -m pip install -e ".[test]"
-    pytest -q
+    python -m pip install -e ".[dev]"
+    pytest -W error
 
-Python 3.10 through 3.14 are supported by the current project metadata.
+Python 3.10 through 3.14 are supported by the current project metadata. See
+`CONTRIBUTING.md <CONTRIBUTING.md>`_ for the full local quality gate and
+hardware/interoperability contribution guidance.
 
-License
--------
+Project maintenance
+-------------------
 
-Sllurp is distributed under GPL-3.0-only. See ``LICENSE.txt``.
+* `Changelog <CHANGELOG.md>`_ — unreleased changes and release history
+* `Contributing <CONTRIBUTING.md>`_ — development and pull-request guidance
+* `Security policy <SECURITY.md>`_ — vulnerability reporting and sensitive data
+* `Support <SUPPORT.md>`_ — what to include in bug and hardware reports
+* `Release process <RELEASING.md>`_ — versioning, build validation, and publishing safeguards
+* `Notice <NOTICE.md>`_ — fork lineage and attribution
 
-Issues
-------
+License and lineage
+-------------------
 
-When reporting a bug, include the reader model, firmware version, whether the
-connection is plain LLRP or TLS, the command/configuration used, and DEBUG logs
-with secrets removed.
+Sllurp is distributed under ``GPL-3.0-only``. See ``LICENSE.txt`` for the
+canonical GPLv3 terms and ``NOTICE.md`` for project-specific attribution and
+fork information. This repository is a modified fork of
+`the upstream sllurp project <https://github.com/sllurp/sllurp>`_.
+
+Support and bug reports
+-----------------------
+
+Start with `SUPPORT.md <SUPPORT.md>`_. When GitHub Issues are enabled for this
+fork, use the structured bug/feature templates. Security vulnerabilities should
+follow `SECURITY.md <SECURITY.md>`_ instead of being disclosed publicly.
