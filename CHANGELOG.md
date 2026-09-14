@@ -18,17 +18,20 @@ All notable changes to this fork should be documented here. This project uses se
 - Cross-platform Quick Start and reorganized feature documentation.
 - `sllurp --version` for identifying the installed command build.
 - Windows and macOS CI coverage in addition to the Linux/Python-version matrix.
+- Regression checks for broken internal links across repository documentation.
+- Release-build guards that require `vX.Y.Z` tags and built artifacts to match the package version.
 
 ### Changed
 
 - The source-tree version is now `3.1.0`, distinguishing this feature-bearing fork from the upstream `3.0.5` baseline.
 - Installation documentation now clearly distinguishes this repository from the upstream PyPI `sllurp` distribution.
-- CI validates Python 3.10 through 3.14 on Linux, full tests on Windows and macOS, package installation, coverage, static checks, security checks, and example compilation.
+- CI validates Python 3.10 through 3.14 on Linux, full tests on Windows and macOS, package installation, dependency consistency, coverage, static checks, security checks, documentation links, and example compilation.
 - Repository/project metadata now points to this fork where fork-specific functionality is documented.
 
 ### Fixed
 
 - Core LLRP correctness and state-machine defects, malformed C1G2 metadata, mutable defaults, timeout/correlation edge cases, XML hardening, HTTP cleanup, and additional failure-path handling covered by regression tests.
+- Timed-pause tests now wait on the actual asynchronous state transition instead of relying on fixed scheduler timing.
 
 ## Release history
 
