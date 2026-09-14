@@ -1,6 +1,18 @@
 RF telemetry mode
 =================
 
+Start here
+----------
+
+Install and verify a normal inventory first using the
+`Quick Start <../QUICKSTART.md>`_::
+
+    sllurp inventory -a 0 READER_HOST
+
+Then enable telemetry in Python with ``rf_telemetry_mode="standard"`` for
+portable LLRP fields or ``"zebra"`` for supported Zebra/Motorola phase and
+physical-port extensions.  The full docs map is in `docs/index.rst <index.rst>`_.
+
 Purpose
 -------
 
