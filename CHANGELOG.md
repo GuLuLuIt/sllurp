@@ -32,12 +32,14 @@ All notable changes to this fork should be documented here. This project uses se
 - Removed unreferenced capability dumps, bundled LLRP standard PDFs, a legacy Impinj R1000 XML dump, obsolete `bin/` wrappers, and the superseded Tornado demo.
 - Simplified the FastAPI example to repository-first installation, environment-based configuration, same-origin browser access, and POST actions for state changes.
 - Renamed process-oriented regression-test files to feature-oriented names without changing their test coverage.
-- Clarified in `NOTICE.md` that inherited file-level license notices are preserved and are not overridden by repository metadata.
+- Updated `NOTICE.md` to reflect the current GPLv3 file-level license wording.
 
 ### Fixed
 
 - Core LLRP correctness and state-machine defects, malformed C1G2 metadata, mutable defaults, timeout/correlation edge cases, XML hardening, HTTP cleanup, and additional failure-path handling covered by regression tests.
 - Timed-pause tests now wait on the actual asynchronous state transition instead of relying on fixed scheduler timing.
+- Aligned the stale `sllurp/llrp_proto.py` GPLv2 header wording with the project's GPLv3 license while preserving existing copyright notices.
+- Corrected Impinj frequency capability decoding to advance 32-bit frequency entries by the correct stride.
 
 ## Release history
 
