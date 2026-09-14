@@ -1,0 +1,57 @@
+name: Repair upstream FastAPI diff
+
+on:
+  push:
+    branches:
+      - upstream/fix-audit-protocol-cli-2026-09-14
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: upstream/fix-audit-protocol-cli-2026-09-14
+          fetch-depth: 0
+      - name: Restore original bytes and patch shutdown only
+        run: |
+          git checkout 28a3b240babcd58b1645c33412179e9a03876735 -- examples/fastapi/app.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('examples/fastapi/app.py')
+          data = path.read_bytes()
+          nl = b'\r\n' if b'\r\n' in data else b'\n'
+          old = '''        if READER and READER.is_alive():
+              try:
+                  READER.llrp.stopPolitely()
+                  READER.disconnect()
+                  logging.info("RFID Reader disconnected during shutdown")
+              except Exception as e:
+                  logging.error(f"Error during reader shutdown: {e}")
+          '''.encode().replace(b'\n', nl)
+          new = '''        if READER and READER.is_alive():
+              try:
+                  READER.disconnect(timeout=2)
+                  if READER.is_alive():
+                      READER.hard_disconnect()
+                      READER.join(1)
+                  logging.info("RFID Reader disconnected during shutdown")
+              except Exception as e:
+                  logging.error(f"Error during reader shutdown: {e}")
+                  READER.hard_disconnect()
+          '''.encode().replace(b'\n', nl)
+          if data.count(old) != 1:
+              raise SystemExit(f'expected one shutdown hunk, found {data.count(old)}')
+          path.write_bytes(data.replace(old, new, 1))
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add examples/fastapi/app.py
+          git commit -m 'Preserve FastAPI example line endings'
+          git push origin HEAD:upstream/fix-audit-protocol-cli-2026-09-14
