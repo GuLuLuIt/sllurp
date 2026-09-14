@@ -389,7 +389,9 @@ def access(
         hoptable_id=hoptable_id,
     )
     logger.debug("access args: %s", args)
-    _access.main(args)
+    status = _access.main(args)
+    if status:
+        raise click.exceptions.Exit(status)
 
 
 @cli.command()

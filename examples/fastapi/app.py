@@ -88,11 +88,14 @@ async def lifespan(application: FastAPI):
         # Shutdown: Clean up the reader
         if READER and READER.is_alive():
             try:
-                READER.llrp.stopPolitely()
-                READER.disconnect()
+                READER.disconnect(timeout=2)
+                if READER.is_alive():
+                    READER.hard_disconnect()
+                    READER.join(1)
                 logging.info("RFID Reader disconnected during shutdown")
             except Exception as e:
                 logging.error(f"Error during reader shutdown: {e}")
+                READER.hard_disconnect()
 
 
 app = FastAPI(lifespan=lifespan)

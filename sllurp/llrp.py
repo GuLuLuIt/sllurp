@@ -473,6 +473,8 @@ class LLRPClient:
             "UHFC1G2RFModeTableEntry"
         ]
 
+        self.reader_mode = None
+
         # select a mode by matching available modes to requested parameters:
         # favor mode_identifier over modulation
         if self.config.mode_identifier is not None:
@@ -1841,6 +1843,11 @@ class LLRPReaderClient:
             self.llrp.setState(LLRPReaderState.STATE_DISCONNECTED)
 
         if self.disconnect_requested.is_set():
+            try:
+                self.hard_disconnect()
+            except Exception:
+                logger.exception("hard_disconnect error during requested disconnect")
+            self._on_disconnected()
             return True
 
         try:
