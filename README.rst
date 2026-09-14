@@ -28,9 +28,6 @@ Ubuntu/Debian, Fedora/RHEL-family distributions, Arch/Manjaro, openSUSE, macOS,
 first inventory, Secure LLRP, tag access, deduplication, management APIs, and
 RF telemetry.
 
-Why this fork
--------------
-
 ==============================  ==================================================
 Capability                      What you get
 ==============================  ==================================================
