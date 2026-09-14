@@ -1,6 +1,18 @@
 Impinj reader management
 ========================
 
+Start here
+----------
+
+Install and verify Sllurp first with the `Quick Start <../QUICKSTART.md>`_.  For
+LLRP inventory on an Impinj reader, the fastest smoke test is::
+
+    sllurp inventory -a 0 READER_HOST
+
+For R700/R720 web management, continue with the Python example below after the
+reader's documented REST service and credentials are configured.  The full docs
+map is in `docs/index.rst <index.rst>`_.
+
 Sllurp separates RFID inventory control from reader administration.  Inventory
 continues to use LLRP.  Device-management over HTTP/HTTPS is implemented only
 where Impinj publishes a stable machine API.

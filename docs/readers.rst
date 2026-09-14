@@ -1,6 +1,18 @@
 Reader compatibility
 ====================
 
+Start here
+----------
+
+For installation and a first inventory, use the `Quick Start <../QUICKSTART.md>`_.
+The fastest compatibility check is simply to verify that the reader exposes
+LLRP and accepts a basic inventory::
+
+    sllurp inventory -a 0 READER_HOST
+
+For Secure LLRP, reader management, RF telemetry, and runtime configuration,
+use the feature links in `docs/index.rst <index.rst>`_.
+
 sllurp implements standard GS1/EPCglobal LLRP and is deliberately not tied to
 one reader model.  Readers in this document fall into two groups:
 

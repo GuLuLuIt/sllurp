@@ -1,6 +1,17 @@
 Honeywell / Intermec IF-series management
 ========================================
 
+Start here
+----------
+
+Use the `Quick Start <../QUICKSTART.md>`_ for installation and first-reader
+verification.  Confirm normal LLRP inventory works first::
+
+    sllurp inventory -a 0 READER_HOST
+
+Then use the DCWS manager below for the reader's separate Device Configuration
+Web Service.  The full documentation map is in `docs/index.rst <index.rst>`_.
+
 Honeywell/Intermec IF1, IF2, and IF61 readers expose Device Configuration Web
 Services (DCWS) over HTTP or HTTPS.  DCWS is a SOAP service, not a REST API.
 The reader itself publishes the authoritative ``DeviceConfiguration.wsdl``

@@ -1,292 +1,316 @@
-======================================================================
-sllurp is a pure-python client and library for LLRP-based RFID readers
-======================================================================
+=================================================================
+Sllurp — production-focused Python LLRP client for RFID readers
+=================================================================
 
-
-.. image:: http://img.shields.io/pypi/v/sllurp.svg
-    :target: https://pypi.python.org/pypi/sllurp
+.. image:: https://img.shields.io/pypi/v/sllurp.svg
+   :target: https://pypi.org/project/sllurp/
+   :alt: PyPI
 
 .. image:: https://img.shields.io/pypi/pyversions/sllurp.svg
-    :target: https://pypi.python.org/pypi/sllurp
+   :target: https://pypi.org/project/sllurp/
+   :alt: Python versions
 
-.. image:: https://github.com/sllurp/sllurp/actions/workflows/test.yml/badge.svg
-    :target: https://github.com/sllurp/sllurp/actions/workflows/test.yml
+.. image:: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml/badge.svg?branch=main
+   :target: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml
+   :alt: Tests
 
-sllurp is a Python library to interface with RFID readers.  It is a pure-Python
-implementation of the Low Level Reader Protocol (LLRP).
+.. image:: https://img.shields.io/badge/license-GPL--3.0-blue.svg
+   :target: LICENSE.txt
+   :alt: GPL-3.0
 
-These readers are known to work well with sllurp, but it should be adaptable
-with not much effort to other LLRP-compatible readers:
+Sllurp is a pure-Python client and library for **LLRP-based RFID readers**.
+This fork keeps the original vendor-neutral LLRP core and adds production-focused
+features for secure transport, reader administration, deduplication, runtime
+configuration, and RF telemetry.
 
-- Impinj Speedway (R1000)
-- Impinj Speedway Revolution (R220, R420)
-- Impinj Speedway xPortal
-- Motorola MC9190-Z (handheld)
-- Zebra Fixed RFID Reader (FX7500, FX9600, FXR90 family)
+**New here?** Start with the `Quick Start <QUICKSTART.md>`_.  It covers Windows,
+Ubuntu/Debian, Fedora/RHEL-family distributions, Arch/Manjaro, openSUSE, macOS,
+first inventory, Secure LLRP, tag access, deduplication, management APIs, and
+RF telemetry.
 
-Zebra HTTP/HTTPS management adapters additionally cover the documented RM
-interface on FX7400, FX7500, FX9500, FX9600, and ATR7000, plus Zebra IoT
-Connector local REST on supported FX7500/FX9600/ATR7000 firmware and FXR90.
-See ``docs/reader-management.rst`` for the model capability matrix and examples.
+Why this fork
+-------------
 
-File an issue on GitHub_ if you would like help getting another kind of reader
-to work.
+==============================  ==================================================
+Capability                      What you get
+==============================  ==================================================
+Standard LLRP                   Inventory, AccessSpecs, logging, reset, reconnect
+Secure LLRP / TLS               Verified TLS, custom CA, mTLS, SNI, port 5085
+Timed tag deduplication         Auto/hardware/memory backends with bounded behavior
+Reader management              Generic HTTP/HTTPS plus vendor-aware adapters
+Zebra management                RM XML and IoT Connector local REST where supported
+Impinj management               R700/R720 documented REST management
+Honeywell / Intermec            IF1/IF2/IF61 WSDL-driven DCWS/SOAP management
+Runtime configuration           Transactional ``apply_config()`` and state views
+RF telemetry                    Per-antenna RSSI/channel/timestamps + Zebra phase
+Reader capability registry      Model/family-aware behavior instead of hard-coding
+Impinj LLRP extensions          Search mode, reports, fixed-frequency controls
+Multi-reader CLI                Inventory more than one reader from one command
+==============================  ==================================================
 
-sllurp is distributed under version 3 of the GNU General Public License.  See
-``LICENSE.txt`` for details.
+Install the full feature set
+----------------------------
 
-Quick Start
------------
+The package published on PyPI may lag this fork.  To use the features documented
+in this repository, install directly from this fork's ``main`` branch.
 
-Install from PyPI_::
+Windows PowerShell::
 
-    $ python3 -m venv .venv
-    $ source .venv/bin/activate
-    $ pip install sllurp
-    $ sllurp inventory ip.add.re.ss
+    py -3.12 -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install --upgrade pip
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 
-Run ``sllurp --help`` and ``sllurp inventory --help`` to see options.
+Ubuntu / Debian / Linux Mint / Raspberry Pi OS::
 
-Or install from GitHub_::
+    sudo apt update
+    sudo apt install -y python3 python3-venv python3-pip git
+    python3 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install --upgrade pip
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 
-    $ git clone https://github.com/sllurp/sllurp.git
-    $ cd sllurp
-    $ python3 -m venv .venv
-    $ source .venv/bin/activate
-    $ pip install .
-    $ sllurp inventory ip.add.re.ss
+For Fedora/RHEL/Rocky/AlmaLinux, Arch/Manjaro, openSUSE, macOS, Windows Command
+Prompt, editable source installs, and troubleshooting, see the
+`complete Quick Start <QUICKSTART.md>`_.
 
-If the reader gets into a funny state because you're debugging against it
-(e.g., if your program or sllurp has crashed), you can set it back to an idle
-state by running ``sllurp reset ip.add.re.ss``.
+The currently published package can still be installed with::
 
-.. _PyPI: https://pypi.python.org/pypi/sllurp
+    python -m pip install sllurp
 
+First RFID inventory
+--------------------
 
-Zebra FXR90
------------
+Replace the address with your reader::
 
-The FXR90 family can be used through its LLRP interface.  sllurp keeps antenna
-handling capability-driven rather than hard-coding a particular FXR90 SKU, so
-the same code works with the 4-port, integrated-antenna plus external-port, and
-8-port variants.  Use antenna ``0`` to request all antennas exposed by the
-reader::
+    sllurp inventory 192.168.1.50
 
-    $ sllurp inventory -a 0 fxr90.example
+Use every antenna reported by the reader and stop after 10 seconds::
 
-For readers configured for secure LLRP, enable TLS.  The default is to verify
-the reader certificate using the operating system trust store; a private CA
-bundle can be supplied explicitly::
+    sllurp inventory -a 0 -t 10 192.168.1.50
 
-    $ sllurp inventory --tls --tls-ca-file /path/to/reader-ca.pem -a 0 fxr90.example
+Inventory multiple readers::
 
-If the reader requires client-certificate authentication, also provide a
-certificate and its private key::
+    sllurp inventory -a 0 192.168.1.50 192.168.1.51
 
-    $ sllurp inventory --tls --tls-client-cert client.pem --tls-client-key client.key fxr90.example
+If an interrupted debugging session leaves a reader in an unexpected LLRP
+state::
 
-When connecting to an IP address while the certificate is issued to a DNS
-name, use ``--tls-server-hostname`` to set the TLS SNI/certificate hostname.
-``--tls-no-verify`` is available for controlled test environments, but disables
-certificate validation and should not be used as the normal production setup.
+    sllurp reset 192.168.1.50
 
-FXR90 management is also available through Zebra IoT Connector local REST using
-``sllurp.zebra_management.ZebraIoTConnectorManager``.  LLRP remains the reader
-inventory/control protocol; the REST adapter is for the reader's separate web
-management surface.
+Run ``sllurp --help`` and ``sllurp inventory --help`` for the complete command
+options available in the installed version.
 
-Zebra tag phase reporting
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Common feature examples
+-----------------------
 
-Readers implementing Zebra/Motorola custom LLRP report parameters can request
-phase data with ``zebra_tag_content_selector``.  Reported ``MotoTagPhase``
-values are decoded to degrees::
+Timed deduplication::
+
+    sllurp inventory --dedup-seconds 2 --dedup-backend auto -a 0 192.168.1.50
+
+Secure LLRP with a private CA::
+
+    sllurp inventory --tls --tls-ca-file reader-ca.pem reader.example.com
+
+Impinj dual-target search mode::
+
+    sllurp inventory --impinj-search-mode 2 192.168.1.50
+
+Impinj extended phase/RSSI/Doppler reporting::
+
+    sllurp inventory --impinj-reports -a 0 192.168.1.50
+
+Stream tag observations to CSV::
+
+    sllurp log -a 0 -o tags.csv 192.168.1.50
+
+Read tag memory::
+
+    sllurp access --read-words 2 --count 1 192.168.1.50
+
+See the `Quick Start <QUICKSTART.md>`_ for complete examples and safety notes.
+
+Secure LLRP / TLS
+-----------------
+
+Plain LLRP normally uses TCP 5084.  ``--tls`` uses encrypted LLRP and defaults
+to TCP 5085 unless ``--port`` is supplied explicitly.  Certificate verification
+is enabled by default.
+
+Private CA::
+
+    sllurp inventory --tls --tls-ca-file reader-ca.pem reader.example.com
+
+Mutual TLS::
+
+    sllurp inventory \
+        --tls \
+        --tls-ca-file reader-ca.pem \
+        --tls-client-cert client.pem \
+        --tls-client-key client.key \
+        reader.example.com
+
+When connecting by IP to a certificate issued to a DNS name, use
+``--tls-server-hostname``.  ``--tls-no-verify`` exists for controlled testing,
+but should not be the normal production setup.
+
+See `docs/secure_llrp.rst <docs/secure_llrp.rst>`_.
+
+Reader management
+-----------------
+
+LLRP controls RFID inventory.  Reader web administration is a separate surface.
+This fork provides:
+
+* generic HTTP/HTTPS management with Basic/Bearer authentication, verified TLS,
+  custom CAs, client certificates, same-origin protection, and normalized errors;
+* Zebra Reader Management XML support for documented fixed-reader families;
+* Zebra IoT Connector local REST support where the model/firmware exposes it;
+* Impinj R700/R720 documented ``/api/v1`` management;
+* Honeywell/Intermec IF1/IF2/IF61 WSDL-driven DCWS/SOAP management.
+
+Example generic transport:
+
+.. code:: python
+
+    from sllurp.reader_management import HTTPReaderManager
+
+    manager = HTTPReaderManager(
+        "https://reader.example",
+        username="admin",
+        password="secret",
+    )
+    settings = manager.get_settings("/api/settings")
+
+See `docs/reader-management.rst <docs/reader-management.rst>`_,
+`docs/impinj-management.rst <docs/impinj-management.rst>`_, and
+`docs/intermec-management.rst <docs/intermec-management.rst>`_.
+
+RF telemetry
+------------
+
+``rf_telemetry_mode`` is an opt-in mode for applications that need per-antenna
+radio observations instead of only radio-wide tag identity.
+
+``standard`` requests portable LLRP telemetry such as antenna, channel, RSSI,
+timestamps, tag-seen count, and ROSpec ID.  ``zebra`` adds supported
+Zebra/Motorola phase and physical-port telemetry.
+
+.. code:: python
+
+    from sllurp.llrp import LLRPReaderConfig
 
     config = LLRPReaderConfig({
-        "zebra_tag_content_selector": {
-            "EnableZoneID": False,
-            "EnableZoneName": False,
-            "EnableAntennaPhysicalPortConfig": False,
-            "EnablePhase": True,
-            "EnableGPS": False,
-            "EnableMLTReport": False,
-        }
+        "antennas": [1, 2],
+        "rf_telemetry_mode": "zebra",
+        "dedup_seconds": None,
     })
 
-The selector is part of the ROSpec, so changing it through transactional
-``apply_config()`` causes a controlled ROSpec replacement rather than a reconnect.
-Transmit-power capability parsing also preserves reader-advertised indexes,
-including readers whose power table starts at index 0.
+Sllurp acquires and normalizes measurements; localization/vector math remains a
+higher-level application concern.  See
+`docs/rf-telemetry.rst <docs/rf-telemetry.rst>`_.
 
-RF telemetry mode
-~~~~~~~~~~~~~~~~~
+Dynamic runtime configuration
+-----------------------------
 
-For applications that need raw RF observations rather than one radio-wide tag
-identity, use ``rf_telemetry_mode``.  ``standard`` preserves per-antenna LLRP
-telemetry; ``zebra`` additionally requests Zebra/Motorola phase and physical-port
-telemetry.  The default is ``off`` so existing inventory behavior is unchanged::
+``LLRPReaderClient.apply_config()`` classifies changes before mutating reader
+state.  Client-only changes can apply locally, ROSpec changes can perform a
+controlled replacement, reader configuration changes are serialized, and
+transport/session changes that require reconnect are rejected while connected
+rather than being half-applied.
 
-    config = LLRPReaderConfig({"rf_telemetry_mode": "zebra"})
+Use ``get_config_state()`` to inspect desired, generated, applied, and
+reader-reported state.  See
+`docs/runtime-state.rst <docs/runtime-state.rst>`_.
 
-See ``docs/rf-telemetry.rst`` for the data-flow diagrams, deduplication behavior,
-and the boundary between sllurp acquisition and a future localization/vector
-analysis library.
+Reader compatibility
+--------------------
 
-Reader API
-----------
+Sllurp is deliberately not tied to one reader vendor.  The compatibility
+registry includes families from Zebra/Motorola, Impinj, Honeywell/Intermec,
+ThingMagic/JADAK, and Alien where standard LLRP support is documented or known.
+Vendor-specific capabilities remain model/firmware dependent.
 
-sllurp spawn his own "thread" to manage network interaction with the reader.
-To make a connection, create a ``LLRPReaderClient`` and ``connect()`` it:
+See the full matrix in `docs/readers.rst <docs/readers.rst>`_.
+
+Documentation
+-------------
+
+* `Quick Start <QUICKSTART.md>`_ — install and use every major feature
+* `Documentation index <docs/index.rst>`_ — feature map and CLI map
+* `Reader compatibility <docs/readers.rst>`_
+* `Secure LLRP <docs/secure_llrp.rst>`_
+* `Reader management and deduplication <docs/reader-management.rst>`_
+* `Impinj management <docs/impinj-management.rst>`_
+* `Honeywell / Intermec management <docs/intermec-management.rst>`_
+* `RF telemetry <docs/rf-telemetry.rst>`_
+* `Runtime state and dynamic configuration <docs/runtime-state.rst>`_
+
+Minimal Python API
+------------------
 
 .. code:: python
 
-    # Minimal example; see sllurp/verb/inventory.py for more.
-    from sllurp import llrp
-    from sllurp.llrp import LLRPReaderConfig, LLRPReaderClient, LLRP_DEFAULT_PORT
-    import logging
-    logging.getLogger().setLevel(logging.INFO)
+    from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig, LLRP_DEFAULT_PORT
 
-    def tag_report_cb (reader, tag_reports):
+    def on_tags(reader, tag_reports):
         for tag in tag_reports:
-            print('tag: %r' % tag)
+            print(tag)
 
-    config = LLRPReaderConfig()
-    reader = LLRPReaderClient(host, LLRP_DEFAULT_PORT, config)
-    reader.add_tag_report_callback(tag_report_cb)
-
+    config = LLRPReaderConfig({"antennas": [0]})
+    reader = LLRPReaderClient("192.168.1.50", LLRP_DEFAULT_PORT, config)
+    reader.add_tag_report_callback(on_tags)
     reader.connect()
-    # We are now connected to the reader and inventory is running.
 
     try:
-        # Block forever or until a disconnection of the reader
         reader.join(None)
-    except (KeyboardInterrupt, SystemExit):
-        # catch ctrl-C and stop inventory before disconnecting
+    finally:
         reader.disconnect()
 
-.. note::
+Troubleshooting
+---------------
 
-    Sllurp used to depend on python twisted and was using its mainloop.
-    This is not the case anymore.
-    Once connected to a reader, Sllurp will spawn his own "thread" to process
-    the received messages and to call user defined callbacks.
-    ``is_alive()`` and ``join(timeout)`` thread api are exposed by the
-    ``LLRPReaderClient`` instance.
+Connection failures usually come down to reader addressing, VLAN/firewall
+rules, LLRP being disabled, or the wrong plain/secure port.  For verbose
+protocol diagnostics::
 
+    sllurp --debug inventory 192.168.1.50
 
-Getting More Information From Tag Reports
------------------------------------------
+Write diagnostics to a file::
 
-When initializing ``LLRPReaderConfig``, set flags in the
-``tag_content_selector`` dictionary argument:
+    sllurp --debug --logfile sllurp.log inventory 192.168.1.50
 
-.. code:: python
+For certificate errors, prefer supplying the correct CA rather than disabling
+verification.  The `Quick Start troubleshooting section <QUICKSTART.md>`_
+contains a fuller checklist.
 
-    llrp.LLRPReaderConfig({
-        'tag_content_selector': {
-            'EnableROSpecID': False,
-            'EnableSpecIndex': False,
-            'EnableInventoryParameterSpecID': False,
-            'EnableAntennaID': True,
-            'EnableChannelIndex': False,
-            'EnablePeakRSSI': True,
-            'EnableFirstSeenTimestamp': False,
-            'EnableLastSeenTimestamp': True,
-            'EnableTagSeenCount': True,
-            'EnableAccessSpecID': False,
-        }
-    })
+Development
+-----------
 
+Clone this fork and install it in editable mode::
 
-Logging
--------
+    git clone https://github.com/GuLuLuIt/sllurp.git
+    cd sllurp
+    python3 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install -e ".[test]"
+    pytest -q
 
-sllurp logs under the name ``sllurp``, so if you wish to log its output, you
-can do this the application that imports sllurp:
+Python 3.10 through 3.14 are supported by the current project metadata.
 
-.. code:: python
+License and lineage
+-------------------
 
-    sllurp_logger = logging.getLogger('sllurp')
-    sllurp_logger.setLevel(logging.DEBUG)
-    sllurp_logger.setHandler(logging.FileHandler('sllurp.log'))
-    # or .setHandler(logging.StreamHandler()) to log to stderr...
+Sllurp is distributed under GPL-3.0.  See ``LICENSE.txt``.
 
+The project began as a fork of LLRPyC and has received contributions from Ben
+Ransford, Florent Viard, Bogdan-Marius Pradatu, Jonas Gröger, Qifan Lu, and many
+other contributors.  This repository is an enhanced fork of the original
+`sllurp/sllurp <https://github.com/sllurp/sllurp>`_ project.
 
-Vendor Extensions
------------------
+Issues
+------
 
-sllurp has limited support for vendor extensions through LLRP's custom message
-facilities.  For example, `sllurp inventory --impinj-search-mode N` allows you
-to set the Impinj_ search mode to single target (1) or dual target (2).
-
-.. _Impinj: https://support.impinj.com/hc/en-us/articles/202756158-Understanding-EPC-Gen2-Search-Modes-and-Sessions
-
-Handy Reader Commands
----------------------
-
-To see what inventory settings an Impinj reader is currently using (i.e., to
-fetch the current ROSpec), ssh to the reader and
-
-::
-
-    > show rfid llrp rospec 0
-
-The "nuclear option" for resetting a reader is:
-
-::
-
-    > reboot
-
-If You Find a Bug
------------------
-
-Start an issue on GitHub_!  Please follow Simon Tatham's guide_ on writing good
-bug reports.
-
-Bug reports are most useful when they're accompanied by verbose error messages.
-Turn sllurp's log level up to DEBUG, which you can do by specifying the `-d`
-command-line option to ``sllurp``.  You can log to a logfile with the ``-l
-[filename]`` option.  Or simply put this at the beginning of your own code:
-
-.. code:: python
-
-  import logging
-  logging.getLogger('sllurp').setLevel(logging.DEBUG)
-
-.. _GitHub: https://github.com/sllurp/sllurp/
-.. _guide: https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
-
-Known Issues
-------------
-
-Reader mode selection is confusing_, not least because most readers seem to
-conflate ``ModeIndex`` and ``ModeIdentifier``.  If you're using ``sllurp
-inventory``, use ``--mode-identifier N``.  Check your reader's manual to see
-what mode identifiers it supports via the ``C1G2RFControl`` parameter, or run
-``sllurp --debug inventory`` against a reader to see a dump of the supported
-modes in the capabilities description.
-
-.. _confusing: https://github.com/sllurp/sllurp/issues/63#issuecomment-309233937
-
-Contributing
-------------
-
-Want to contribute?  Here are some areas that need improvement:
-
-- Encode more protocol messages in the ``construct`` branch.
-- Write tests for common encoding and decoding tasks.
-
-Authors
--------
-
-Much of the code in sllurp is by `Ben Ransford`_, although it began its life in
-August 2013 as a fork of LLRPyC_.  Many fine citizens of GitHub have
-contributed code to sllurp since the fork, including `Florent Viard`_,
-`Bogdan-Marius Pradatu`_, `Jonas Gröger`_, and `Qifan Lu`_.
-
-.. _Ben Ransford: https://ben.ransford.org/
-.. _LLRPyC: https://sourceforge.net/projects/llrpyc/
-.. _Florent Viard: https://github.com/fviard
-.. _Bogdan-Marius Pradatu: https://github.com/BogdanPradatu
-.. _Jonas Gröger: https://github.com/JonasGroeger
-.. _Qifan Lu: https://github.com/lqf96
+When reporting a bug, include the reader model, firmware version, whether the
+connection is plain LLRP or TLS, the command/configuration used, and DEBUG logs
+with secrets removed.
