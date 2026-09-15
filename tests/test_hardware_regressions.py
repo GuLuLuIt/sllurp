@@ -116,3 +116,41 @@ def test_access_command_propagates_nonzero_return(monkeypatch):
         ["access", "offline.invalid", "--read-words", "1", "--count", "1"],
     )
     assert result.exit_code == 1
+
+
+def test_access_connection_failure_returns_nonzero(monkeypatch):
+    class FailingReader:
+        def __init__(self, host, port, config):
+            self.host = host
+            self.port = port
+
+        def add_disconnected_callback(self, callback):
+            pass
+
+        def add_tag_report_callback(self, callback):
+            pass
+
+        def add_state_callback(self, state, callback):
+            pass
+
+        def connect(self):
+            raise OSError("offline")
+
+        def get_peername(self):
+            return self.host, self.port
+
+        def disconnect(self):
+            pass
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout):
+            pass
+
+    monkeypatch.setattr("sllurp.verb.access.LLRPReaderClient", FailingReader)
+    result = CliRunner().invoke(
+        cli,
+        ["access", "offline.invalid", "--read-words", "1", "--count", "1"],
+    )
+    assert result.exit_code == 1
