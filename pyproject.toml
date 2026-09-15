@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Production-focused Python client and toolkit for LLRP RFID readers"
 readme = "README.rst"
 license = "GPL-3.0-only"
-requires-python = ">=3.10"
+requires-python = ">=3.13,<3.15"
 authors = [
     { name = "Ben Ransford", email = "ben@ransford.org" },
 ]
@@ -21,9 +21,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
