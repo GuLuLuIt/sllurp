@@ -234,16 +234,19 @@ def main(main_args):
         reader_clients.append(reader)
 
     start_time = monotonic()
+    connection_failed = False
+    reader = None
     try:
         for reader in reader_clients:
             reader.connect()
     except Exception:
-        if reader:
+        connection_failed = True
+        if reader is not None:
             logger.error(
                 "Failed to establish a connection with: %r", reader.get_peername()
             )
-        for reader in reader_clients:
-            reader.disconnect()
+        for client in reader_clients:
+            client.disconnect()
 
     while True:
         try:
@@ -260,3 +263,5 @@ def main(main_args):
                 except Exception:
                     logger.exception("Error during disconnect. Ignoring...")
             break
+
+    return 1 if connection_failed else 0

@@ -7,7 +7,7 @@ Replace `READER_HOST`, certificate paths, antenna IDs, and tag-memory parameters
 ```bash
 sllurp inventory READER_HOST
 sllurp inventory -a 0 -t 10 READER_HOST
-sllurp inventory -a 1 -a 2 READER_HOST
+sllurp inventory -a 1,2 READER_HOST
 ```
 
 Inventory multiple readers in one command:

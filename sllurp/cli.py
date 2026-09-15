@@ -569,7 +569,9 @@ def access(
         access_password="***" if args.access_password else 0
     )
     logger.debug("access args: %s", safe_args)
-    _access.main(args)
+    status = _access.main(args)
+    if status:
+        raise click.exceptions.Exit(status)
 
 
 @cli.command()

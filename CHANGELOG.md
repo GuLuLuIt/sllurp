@@ -40,6 +40,8 @@ All notable changes to this fork should be documented here. This project uses se
 - Timed-pause tests now wait on the actual asynchronous state transition instead of relying on fixed scheduler timing.
 - Aligned the stale `sllurp/llrp_proto.py` GPLv2 header wording with the project's GPLv3 license while preserving existing copyright notices.
 - Corrected Impinj frequency capability decoding to advance 32-bit frequency entries by the correct stride.
+- Corrected audited LLRP wire encoders/decoders, rollback after rejected configuration operations, mode reset, disconnect cleanup, FastAPI shutdown, diagnostic logging, CLI exit status, detached state snapshots, documentation recipes, and minimum build-backend compatibility. Logging setup preserves application-owned handlers.
+- Preserved the existing unlimited ROReportSpec count (N=0), including explicit AISpec batching and duration triggers. The proposed N=1 default was withdrawn because it changes reporting behavior; see LLRP 1.1 section 14.2.1: https://ref.gs1.org/standards/llrp/1.1.0/.
 
 ## Release history
 
