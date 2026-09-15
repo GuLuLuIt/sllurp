@@ -2,9 +2,9 @@
 Sllurp — production-focused Python LLRP client for RFID readers
 =================================================================
 
-.. image:: https://img.shields.io/badge/python-3.10--3.14-blue.svg
+.. image:: https://img.shields.io/badge/python-3.13--3.14-blue.svg
    :target: https://www.python.org/
-   :alt: Python 3.10 through 3.14
+   :alt: Python 3.13 and 3.14
 
 .. image:: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml/badge.svg?branch=main
    :target: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml
@@ -284,11 +284,10 @@ Clone and install in editable mode with the complete developer toolset::
     python -m pip install -e ".[dev]"
     pytest -W error
 
-Python 3.10 through 3.14 are supported by the current project metadata and CI.
-The Linux matrix covers every supported Python version; Windows and macOS run
-the full suite on the current CI Python. See `CONTRIBUTING.md <CONTRIBUTING.md>`_
-for the full local quality gate and hardware/interoperability contribution
-guidance.
+Python 3.13 and 3.14 are the supported Python versions for this fork. CI runs
+the full suite on both versions; Windows and macOS also run the full suite on
+Python 3.14. See `CONTRIBUTING.md <CONTRIBUTING.md>`_ for the full local quality
+gate and hardware/interoperability contribution guidance.
 
 Project maintenance
 -------------------
