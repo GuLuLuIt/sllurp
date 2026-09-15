@@ -84,10 +84,9 @@ def _decode_aispec_event(data, name=None):
     }
     trailing = data[_p.ubyte_uint_ushort_size :]
     if trailing:
-        # AISpecEvent has optional parameters but no repeated/n_fields entry in
-        # the legacy registry. Passing [] prevents decode_all_parameters from
-        # incorrectly requiring a non-existent n_fields key.
-        par, _ = _p.decode_all_parameters(trailing, name, par, [])
+        # Use the registry's post-processed repeat-field metadata so repeated
+        # CustomParameter values stay as a list instead of overwriting each other.
+        par, _ = _p.decode_all_parameters(trailing, name, par)
     return par, ""
 
 
@@ -104,7 +103,9 @@ def _decode_nmea_sentence(data, field_name, parameter_name):
     par = {field_name: body[:byte_count]}
     trailing = body[byte_count:]
     if trailing:
-        par, _ = _p.decode_all_parameters(trailing, parameter_name, par, [])
+        # Preserve registry repeat-field semantics for any trailing vendor/custom
+        # parameters instead of collapsing repeated CustomParameter values.
+        par, _ = _p.decode_all_parameters(trailing, parameter_name, par)
     return par, ""
 
 

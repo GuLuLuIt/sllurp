@@ -9,16 +9,21 @@ from __future__ import annotations
 from . import llrp as _l
 
 
+_original_retry_connect = _l.LLRPReaderClient._retry_connect
+
+
 def _process_deferreds(self, msgName, isSuccess, message_id=None):
     """Complete only the exact pending request when an exact response is stale."""
     if message_id is None:
         message_id = getattr(self, "_response_message_id", None)
-    deferreds = self._deferreds[msgName]
+    deferreds = self._deferreds.get(msgName, [])
     if message_id is not None:
         matched_pending = self._pending_requests.pop(msgName, message_id)
         if matched_pending is None and self._pending_requests.is_stale(
             msgName, message_id
         ):
+            if not deferreds:
+                self._deferreds.pop(msgName, None)
             return False
     else:
         matched_pending = self._pending_requests.pop_response_type(msgName)
@@ -34,6 +39,8 @@ def _process_deferreds(self, msgName, isSuccess, message_id=None):
         deferreds.clear()
 
     if not callbacks and matched_pending is None:
+        if not deferreds:
+            self._deferreds.pop(msgName, None)
         return False
     if _l.is_general_debug_enabled():
         _l.logger.debugfast(
@@ -48,6 +55,14 @@ def _process_deferreds(self, msgName, isSuccess, message_id=None):
     if not deferreds:
         self._deferreds.pop(msgName, None)
     return True
+
+
+def _retry_connect(self):
+    """Never let a failed reconnect path return without an active socket."""
+    recovered = _original_retry_connect(self)
+    if recovered:
+        return True
+    raise ConnectionError("reconnection ended before a retry attempt succeeded")
 
 
 def _start_access_spec(
@@ -83,6 +98,7 @@ def _start_access_spec(
 
 def apply() -> None:
     _l.LLRPClient.processDeferreds = _process_deferreds
+    _l.LLRPReaderClient._retry_connect = _retry_connect
     _l.LLRPReaderClient.start_access_spec = _start_access_spec
 
 
