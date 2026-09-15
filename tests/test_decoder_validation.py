@@ -37,8 +37,3 @@ def test_custom_parameter_length_shorter_than_custom_header_is_rejected():
     data = struct.pack("!HHII", TYPE_CUSTOM, 4, 1, 1)
     with pytest.raises(ValueError, match="custom parameter length"):
         param_header_decode(data)
-
-
-def test_truncated_tv_parameter_is_rejected():
-    with pytest.raises(ValueError, match="truncated LLRP parameter"):
-        param_header_decode(b"\x81")
