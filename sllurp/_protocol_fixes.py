@@ -84,9 +84,20 @@ def _decode_aispec_event(data, name=None):
     }
     trailing = data[_p.ubyte_uint_ushort_size :]
     if trailing:
-        # Use the registry's post-processed repeat-field metadata so repeated
-        # CustomParameter values stay as a list instead of overwriting each other.
-        par, _ = _p.decode_all_parameters(trailing, name, par)
+        # Some reader/test integrations expose the optional singulation details
+        # as their four-byte body without the TV type byte. AISpecEvent has only
+        # this fixed-size optional standard field, so accept that legacy form
+        # without weakening generic parameter decoding.
+        if len(trailing) == _p.ushort_ushort_size:
+            collisions, empty = _p.ushort_ushort_unpack(trailing)
+            par["C1G2SingulationDetails"] = {
+                "NumCollisionSlots": collisions,
+                "NumEmptySlots": empty,
+            }
+        else:
+            # Use the registry's post-processed repeat-field metadata so repeated
+            # CustomParameter values stay as a list instead of overwriting each other.
+            par, _ = _p.decode_all_parameters(trailing, name, par)
     return par, ""
 
 
