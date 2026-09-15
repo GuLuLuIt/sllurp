@@ -217,7 +217,6 @@ def inventory(
 ):
     """Conduct inventory (searching the area around the antennas)."""
     port = _resolve_llrp_port(port, tls_enabled)
-    # XXX band-aid hack to provide many args to _inventory.main
     Args = namedtuple(
         "Args",
         [
@@ -569,7 +568,9 @@ def access(
         access_password="***" if args.access_password else 0
     )
     logger.debug("access args: %s", safe_args)
-    _access.main(args)
+    return_code = _access.main(args)
+    if return_code:
+        raise click.exceptions.Exit(return_code)
 
 
 @cli.command()
