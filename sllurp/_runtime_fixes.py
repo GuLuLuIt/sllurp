@@ -10,6 +10,8 @@ from . import llrp as _l
 
 
 _original_retry_connect = _l.LLRPReaderClient._retry_connect
+_original_handle_message = _l.LLRPClient.handleMessage
+_original_send_keepalive_ack = _l.LLRPClient.send_KEEPALIVE_ACK
 
 
 def _process_deferreds(self, msgName, isSuccess, message_id=None):
@@ -65,6 +67,40 @@ def _retry_connect(self):
     raise ConnectionError("reconnection ended before a retry attempt succeeded")
 
 
+def _send_keepalive_ack(self, message_id=None):
+    """Acknowledge KEEPALIVE with its reader-supplied MessageID when available."""
+    if message_id is None:
+        return _original_send_keepalive_ack(self)
+
+    message_id = int(message_id)
+    if not 0 <= message_id <= _l.LLRP_MSG_ID_MAX:
+        raise _l.LLRPError(f"invalid KEEPALIVE MessageID: {message_id}")
+
+    # KEEPALIVE_ACK is correlated to a reader-originated MessageID. Serialize it
+    # directly instead of routing through sendMessage(), whose explicit-ID path
+    # intentionally advances the client's outbound request counter.
+    with self._request_lock:
+        ack = _l.LLRPMessage(msgdict={"KEEPALIVE_ACK": {"ID": message_id}})
+        self.transport_tx_write(ack.msgbytes)
+    return [("KEEPALIVE_ACK", message_id)]
+
+
+def _handle_message(self, lmsg):
+    """Preserve the MessageID when acknowledging reader KEEPALIVE messages."""
+    if lmsg.getName() == "KEEPALIVE":
+        message_id = None
+        try:
+            message_id = lmsg.msgdict["KEEPALIVE"].get("ID")
+        except (AttributeError, KeyError, TypeError):
+            pass
+        if message_id is None:
+            self.send_KEEPALIVE_ACK()
+        else:
+            self.send_KEEPALIVE_ACK(message_id)
+        return
+    return _original_handle_message(self, lmsg)
+
+
 def _start_access_spec(
     self, op_spec, target_spec=None, stop_after_count=0, access_spec_id=1
 ):
@@ -98,6 +134,8 @@ def _start_access_spec(
 
 def apply() -> None:
     _l.LLRPClient.processDeferreds = _process_deferreds
+    _l.LLRPClient.send_KEEPALIVE_ACK = _send_keepalive_ack
+    _l.LLRPClient.handleMessage = _handle_message
     _l.LLRPReaderClient._retry_connect = _retry_connect
     _l.LLRPReaderClient.start_access_spec = _start_access_spec
 
