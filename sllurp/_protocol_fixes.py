@@ -94,6 +94,19 @@ def _decode_aispec_event(data, name=None):
                 "NumCollisionSlots": collisions,
                 "NumEmptySlots": empty,
             }
+        # A second legacy representation expands the TV type into a 16-bit
+        # integer before the same four-byte body. Restrict this compatibility
+        # path to the known C1G2SingulationDetails type so malformed generic
+        # TLV parameters still fail normally.
+        elif len(trailing) == _p.ushort_ushort_ushort_size:
+            legacy_type, collisions, empty = _p.ushort_ushort_ushort_unpack(trailing)
+            if legacy_type == _p.Param_struct["C1G2SingulationDetails"]["type"]:
+                par["C1G2SingulationDetails"] = {
+                    "NumCollisionSlots": collisions,
+                    "NumEmptySlots": empty,
+                }
+            else:
+                par, _ = _p.decode_all_parameters(trailing, name, par)
         else:
             # Use the registry's post-processed repeat-field metadata so repeated
             # CustomParameter values stay as a list instead of overwriting each other.
