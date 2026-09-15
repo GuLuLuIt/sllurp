@@ -8,6 +8,14 @@ def _config():
     return LLRPReaderConfig({"start_inventory": False, "reset_on_connect": False})
 
 
+class _InboundKeepalive:
+    def __init__(self, message_id):
+        self.msgdict = {"KEEPALIVE": {"ID": message_id}}
+
+    def getName(self):
+        return "KEEPALIVE"
+
+
 def test_aispec_event_accepts_legacy_type_prefixed_singulation_body():
     fixed = struct.pack("!BIH", 0, 7, 3)
     legacy_details = struct.pack(
@@ -39,9 +47,8 @@ def test_keepalive_ack_reuses_reader_message_id_without_advancing_client_counter
     sent = []
     client = LLRPClient(_config(), transport_tx_write=sent.append)
     client.last_msg_id = 41
-    keepalive = LLRPMessage(msgdict={"KEEPALIVE": {"ID": 7001}})
 
-    client.handleMessage(keepalive)
+    client.handleMessage(_InboundKeepalive(7001))
 
     assert len(sent) == 1
     ack = LLRPMessage(msgbytes=sent[0])
