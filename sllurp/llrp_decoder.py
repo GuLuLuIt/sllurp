@@ -210,9 +210,4 @@ def param_header_decode(data):
     if not partype:
         partype, vendorid, subtype, hdr_len, full_length = tlv_param_header_decode(data)
 
-    if partype and full_length > len(data):
-        raise ValueError(
-            f"truncated LLRP parameter: declared {full_length} bytes, got {len(data)}"
-        )
-
     return partype, vendorid, subtype, hdr_len, full_length
