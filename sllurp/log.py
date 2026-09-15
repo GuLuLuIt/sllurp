@@ -33,9 +33,10 @@ def is_general_debug_enabled():
 def init_logging(debug=False, logfile=None, stream="stderr"):
     """Initialize logging with UTC timestamps.
 
-    The historical ``stream`` argument is retained for API compatibility.
-    Sllurp continues to route INFO-and-below messages to stdout and warnings
-    and errors to stderr.
+    Console logging defaults to stderr so commands that intentionally emit
+    machine-readable or binary data on stdout are never contaminated by log
+    records.  ``stream='stdout'`` remains available for callers that
+    explicitly want the historical behavior.
     """
     set_general_debug(debug)
 
@@ -43,14 +44,12 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
     logformat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
     formatter = UTCFormatter(logformat, datefmt="%Y-%m-%dT%H:%M:%S")
 
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stdout_handler.setFormatter(formatter)
-    stderr_handler.setFormatter(formatter)
-    lower_than_warning = MaxLevelFilter(logging.WARNING)
-    stdout_handler.addFilter(lower_than_warning)
-    stdout_handler.setLevel(loglevel)
-    stderr_handler.setLevel(max(loglevel, logging.WARNING))
+    if stream not in {"stderr", "stdout"}:
+        raise ValueError("stream must be 'stderr' or 'stdout'")
+    output = sys.stdout if stream == "stdout" else sys.stderr
+    console_handler = logging.StreamHandler(output)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(loglevel)
 
     root = logging.getLogger()
     root.setLevel(loglevel)
@@ -65,8 +64,7 @@ def init_logging(debug=False, logfile=None, stream="stderr"):
         except Exception:
             root.debug("failed to close previous logging handler", exc_info=True)
 
-    root.addHandler(stderr_handler)
-    root.addHandler(stdout_handler)
+    root.addHandler(console_handler)
 
     if logfile:
         fhandler = logging.FileHandler(logfile)
@@ -90,7 +88,12 @@ def get_logger(module_name):
 
 
 class MaxLevelFilter(logging.Filter):
-    """Let through messages with a level strictly below ``level``."""
+    """Let through messages with a level strictly below ``level``.
+
+    Retained for API compatibility with applications that import it directly.
+    The default CLI logging configuration no longer needs split stdout/stderr
+    handlers.
+    """
 
     def __init__(self, level):
         super().__init__()
