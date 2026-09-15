@@ -2,6 +2,10 @@
 
 from .version import __version__ as sllurp_version
 
+# Apply small, regression-tested corrections to the legacy protocol registry
+# before callers import public LLRP modules or llrp_proto directly.
+from . import _protocol_fixes as _protocol_fixes  # noqa: F401,E402
+
 __all__ = (
     "llrp",
     "llrp_decoder",
