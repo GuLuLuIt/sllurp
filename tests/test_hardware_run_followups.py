@@ -1,7 +1,7 @@
 import struct
 
 from sllurp import llrp_proto as proto
-from sllurp.llrp import LLRPClient, LLRPMessage, LLRPReaderConfig
+from sllurp.llrp import LLRPClient, LLRPReaderConfig
 
 
 def _config():
@@ -51,7 +51,14 @@ def test_keepalive_ack_reuses_reader_message_id_without_advancing_client_counter
     client.handleMessage(_InboundKeepalive(7001))
 
     assert len(sent) == 1
-    ack = LLRPMessage(msgbytes=sent[0])
-    assert ack.getName() == "KEEPALIVE_ACK"
-    assert ack.msgdict["KEEPALIVE_ACK"]["ID"] == 7001
+    msgtype, vendorid, subtype, version, header_len, full_length, message_id = (
+        proto.msg_header_decode(sent[0])
+    )
+    assert msgtype == proto.Message_struct["KEEPALIVE_ACK"]["type"]
+    assert vendorid == 0
+    assert subtype == 0
+    assert version == 1
+    assert header_len == proto.msg_header_len
+    assert full_length == len(sent[0])
+    assert message_id == 7001
     assert client.last_msg_id == 41
