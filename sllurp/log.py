@@ -31,45 +31,51 @@ def is_general_debug_enabled():
 
 
 def init_logging(debug=False, logfile=None, stream="stderr"):
-    """Initialize logging with UTC timestamps.
-
-    Console logging defaults to stderr so commands that intentionally emit
-    machine-readable or binary data on stdout are never contaminated by log
-    records.  ``stream='stdout'`` remains available for callers that
-    explicitly want the historical behavior.
-    """
+    """Initialize logging with UTC timestamps on the requested diagnostic stream."""
     set_general_debug(debug)
 
     loglevel = logging.DEBUG if debug else logging.INFO
     logformat = "%(asctime)s %(name)s: %(levelname)s: %(message)s"
     formatter = UTCFormatter(logformat, datefmt="%Y-%m-%dT%H:%M:%S")
 
-    if stream not in {"stderr", "stdout"}:
-        raise ValueError("stream must be 'stderr' or 'stdout'")
-    output = sys.stdout if stream == "stdout" else sys.stderr
-    console_handler = logging.StreamHandler(output)
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(loglevel)
+    if stream == "stderr":
+        output_stream = sys.stderr
+    elif stream == "stdout":
+        output_stream = sys.stdout
+    elif hasattr(stream, "write"):
+        output_stream = stream
+    else:
+        raise ValueError("stream must be 'stderr', 'stdout', or a writable stream")
+
+    stream_handler = logging.StreamHandler(output_stream)
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(loglevel)
 
     root = logging.getLogger()
     root.setLevel(loglevel)
 
-    # Reinitialization is common in tests and embedded applications. Close
-    # previous handlers so repeated setup does not leak open log files.
-    previous_handlers = list(root.handlers)
-    root.handlers.clear()
+    # Replace only handlers installed here; embedding applications own theirs.
+    previous_handlers = [
+        handler for handler in root.handlers
+        if getattr(handler, "_sllurp_owned", False)
+    ]
     for handler in previous_handlers:
+        root.removeHandler(handler)
         try:
             handler.close()
         except Exception:
-            root.debug("failed to close previous logging handler", exc_info=True)
+            logging.getLogger(__name__).debug(
+                "failed to close previous logging handler", exc_info=True
+            )
 
-    root.addHandler(console_handler)
+    stream_handler._sllurp_owned = True
+    root.addHandler(stream_handler)
 
     if logfile:
         fhandler = logging.FileHandler(logfile)
         fhandler.setFormatter(formatter)
         fhandler.setLevel(loglevel)
+        fhandler._sllurp_owned = True
         root.addHandler(fhandler)
 
 
@@ -88,12 +94,7 @@ def get_logger(module_name):
 
 
 class MaxLevelFilter(logging.Filter):
-    """Let through messages with a level strictly below ``level``.
-
-    Retained for API compatibility with applications that import it directly.
-    The default CLI logging configuration no longer needs split stdout/stderr
-    handlers.
-    """
+    """Let through messages with a level strictly below ``level``."""
 
     def __init__(self, level):
         super().__init__()
