@@ -6,7 +6,7 @@ For the features documented in this repository, install from `GuLuLuIt/sllurp` `
 
 ## 1. Requirements
 
-- Python **3.10 or newer**
+- Python **3.13 or 3.14**
 - Network access to the RFID reader
 - LLRP enabled on the reader
 - TCP **5084** for normal LLRP unless the reader uses another configured port
@@ -25,21 +25,23 @@ On Linux/macOS the command may be `python3 --version`.
 
 ### PowerShell
 
-Install Python and Git if needed:
+Install a supported Python and Git if needed:
 
 ```powershell
-winget install Python.Python.3.12
+winget install Python.Python.3.14
 winget install Git.Git
 ```
 
 Open a new PowerShell window:
 
 ```powershell
-py -3.12 -m venv .venv
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
 ```
+
+Python 3.13 is also supported; use `py -3.13` when that is the interpreter installed on the machine.
 
 If script activation is restricted, use the environment directly:
 
@@ -52,7 +54,7 @@ If script activation is restricted, use the environment directly:
 ### Command Prompt
 
 ```bat
-py -3.12 -m venv .venv
+py -3.14 -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
