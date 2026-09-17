@@ -2,7 +2,7 @@
 
 Use this guide to go from a new computer to a working LLRP inventory, then enable the features you need: Secure LLRP/TLS, timed deduplication, reader management, runtime configuration, RF telemetry, Impinj extensions, tag access, logging, and multi-reader inventory.
 
-For the features documented in this repository, install from `GuLuLuIt/sllurp` `main`. The `sllurp` package on PyPI is the upstream distribution and is not an equivalent installation path for fork-specific features.
+For the features documented in this repository, install the immutable `GuLuLuIt/sllurp` release tag `v3.1.0` or download its wheel from the [v3.1.0 GitHub Release](https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.0). The `sllurp` package on PyPI is the upstream distribution and is not an equivalent installation path for fork-specific features.
 
 ## 1. Requirements
 
@@ -38,13 +38,13 @@ Open a new PowerShell window:
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 If script activation is restricted, use the environment directly:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+.\.venv\Scripts\python.exe -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 .\.venv\Scripts\sllurp.exe --version
 .\.venv\Scripts\sllurp.exe --help
 ```
@@ -55,7 +55,7 @@ If script activation is restricted, use the environment directly:
 py -3.12 -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 3. Ubuntu / Debian / Linux Mint / Raspberry Pi OS
@@ -66,7 +66,7 @@ sudo apt install -y python3 python3-venv python3-pip git
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 4. Fedora / RHEL / Rocky Linux / AlmaLinux
@@ -76,7 +76,7 @@ sudo dnf install -y python3 python3-pip git
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 5. Arch Linux / Manjaro
@@ -86,7 +86,7 @@ sudo pacman -S --needed python python-pip git
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 6. openSUSE / SUSE
@@ -96,7 +96,7 @@ sudo zypper install python3 python3-pip git
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 7. macOS
@@ -108,7 +108,7 @@ brew install python git
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 ```
 
 ## 8. Development/source checkout

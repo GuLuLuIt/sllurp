@@ -165,7 +165,7 @@ reader datasheet/RShell command set.
 Honeywell/Intermec IF2 and IF61
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The IF2 user guide explicitly exposes an unsecure LLRP server on 5084 and a
+The IF2 user guide explicitly exposes an insecure LLRP server on 5084 and a
 secure LLRP server on 5085.  Honeywell/Intermec's LLRP Programmer's Reference
 states that the LLRP implementation supports TLS on IANA port 5085 and discusses
 the IF61 TLS cipher configuration.  sllurp's generic TLS transport therefore

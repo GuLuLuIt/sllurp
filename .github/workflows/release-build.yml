@@ -7,7 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -56,6 +58,18 @@ jobs:
               )
           print(f"Validated release artifacts: {artifacts}")
           PY
+      - name: Generate release checksums
+        run: |
+          cd dist
+          sha256sum sllurp-*.whl sllurp-*.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Attest release distributions
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/sllurp-*.whl
+            dist/sllurp-*.tar.gz
       - name: Upload validated distributions
         uses: actions/upload-artifact@v5
         with:
@@ -63,3 +77,15 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
+      - name: Publish downloadable GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/sllurp-*.whl \
+            dist/sllurp-*.tar.gz \
+            dist/SHA256SUMS.txt \
+            --verify-tag \
+            --title "Sllurp $GITHUB_REF_NAME" \
+            --notes-file RELEASE_NOTES.md

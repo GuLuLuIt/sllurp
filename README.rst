@@ -28,9 +28,15 @@ Arch/Manjaro, openSUSE, macOS, virtual environments, installation, first
 inventory, TLS, deduplication, tag access, logging, management APIs, runtime
 configuration, RF telemetry, and troubleshooting.
 
-Install the feature set documented in this repository::
+Install the current immutable release from GitHub::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
+
+Or download ``sllurp-3.1.0-py3-none-any.whl`` from the
+`v3.1.0 GitHub Release <https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.0>`_
+and install the file directly::
+
+    python -m pip install ./sllurp-3.1.0-py3-none-any.whl
 
 Verify the installed command::
 
@@ -38,8 +44,9 @@ Verify the installed command::
 
 The ``sllurp`` package on PyPI is the upstream distribution, not this fork.
 Use ``pip install sllurp`` only when you intentionally want the upstream
-release. For the features documented on this page, use the GitHub install
-above.
+release. For the features documented on this page, use the tagged GitHub
+release above. The ``main`` branch is for development and is not an immutable
+installation target.
 
 First inventory::
 

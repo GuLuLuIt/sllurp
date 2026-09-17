@@ -2,7 +2,7 @@
 
 All notable changes to this fork should be documented here. This project uses semantic versioning for tagged releases when releases are published.
 
-## Unreleased — 3.1.0
+## 3.1.0 — 2026-09-17
 
 ### Added
 
@@ -50,4 +50,4 @@ All notable changes to this fork should be documented here. This project uses se
 
 ## Release history
 
-This fork has not published a GitHub release yet. The source tree now targets version `3.1.0`; follow `RELEASING.md` before tagging or publishing the first fork release.
+- `3.1.0` — first GuLuLuIT fork release, published from immutable tag `v3.1.0` with a wheel, source distribution, SHA-256 manifest, and GitHub build-provenance attestations.
