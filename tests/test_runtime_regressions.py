@@ -1,5 +1,4 @@
 import threading
-import time
 from types import SimpleNamespace
 
 import pytest
@@ -87,8 +86,19 @@ def test_request_timeout_cleans_pending_callback():
     client = LLRPClient(cfg, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_CONNECTED
     calls = []
-    client.send_GET_READER_CONFIG(lambda state, success: calls.append(success))
-    time.sleep(0.08)
+    callback_called = threading.Event()
+
+    def on_complete(state, success):
+        calls.append(success)
+        callback_called.set()
+
+    client.send_GET_READER_CONFIG(on_complete)
+
+    # Synchronize with the timer callback instead of assuming the operating
+    # system will schedule its thread within a fixed sleep interval.  Busy CI
+    # hosts, especially macOS runners, may deliver the timeout correctly but
+    # resume the test thread before the callback has finished.
+    assert callback_called.wait(timeout=1.0)
     assert calls == [False]
     assert not client._pending_requests.has_response_type("GET_READER_CONFIG_RESPONSE")
 
