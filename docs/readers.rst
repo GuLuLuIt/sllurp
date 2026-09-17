@@ -94,7 +94,7 @@ capabilities, so firmware matters.
 Honeywell/Intermec
 ------------------
 
-The IF2 user guide exposes an unsecure LLRP server on 5084 and a secure LLRP
+The IF2 user guide exposes an insecure LLRP server on 5084 and a secure LLRP
 server on 5085.  Honeywell's LLRP Programmer's Reference describes TLS on 5085
 and specifically notes the IF61 cipher configuration.  Both therefore use the
 same sllurp TLS transport.

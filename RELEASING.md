@@ -1,6 +1,6 @@
 # Releasing Sllurp
 
-This fork currently installs from GitHub and has not published a GitHub release. Treat publishing as an explicit maintainer action, not an automatic side effect of tagging.
+This fork publishes validated distributions through GitHub Releases. A matching `vX.Y.Z` tag triggers the release workflow, which builds and checks the wheel/source distribution, writes SHA-256 checksums, creates GitHub build-provenance attestations, uploads the workflow artifact, and creates the downloadable GitHub Release. Tagging is therefore an explicit publication action.
 
 ## Release checklist
 
@@ -25,8 +25,8 @@ This fork currently installs from GitHub and has not published a GitHub release.
 5. Verify the built wheel in a clean virtual environment and confirm `sllurp --version` reports the release version.
 6. Create and merge a release-preparation pull request.
 7. Tag the exact release commit, for example `v3.1.0`.
-8. Let the release-build workflow build and validate the source distribution and wheel.
-9. Create a GitHub Release from the tag and attach or reference the validated artifacts.
+8. Let the release-build workflow build and validate the source distribution and wheel, generate checksums and attestations, and create the GitHub Release with downloadable assets.
+9. Verify the published release assets and attestation, then test the downloaded wheel in a clean environment.
 
 ## PyPI
 
@@ -36,4 +36,4 @@ If this fork needs independent distribution without upstream PyPI ownership, use
 
 ## Version consistency
 
-A release tag, `sllurp/version.py`, `sllurp --version`, wheel metadata, changelog section, and GitHub Release should all agree on the same version. Do not tag a feature-bearing release while leaving the package version at an inherited upstream value.
+A release tag, `sllurp/version.py`, `sllurp --version`, wheel metadata, changelog section, `RELEASE_NOTES.md`, and GitHub Release must all agree on the same version. Do not tag a feature-bearing release while leaving the package version at an inherited upstream value.

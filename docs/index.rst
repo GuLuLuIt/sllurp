@@ -10,9 +10,10 @@ macOS, installation, first inventory, Secure LLRP, deduplication, tag access,
 logging, reader management, runtime configuration, RF telemetry, and
 troubleshooting.
 
-Install the feature set documented in this repository directly from ``main``::
+Install the feature set documented in this repository from the immutable
+``v3.1.0`` release tag::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@main"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
 
 The ``sllurp`` package on PyPI is the upstream distribution. It is useful when
 you intentionally want the upstream release, but it is not an equivalent
