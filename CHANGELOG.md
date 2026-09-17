@@ -2,6 +2,17 @@
 
 All notable changes to this fork should be documented here. This project uses semantic versioning for tagged releases when releases are published.
 
+## 3.1.1 — 2026-09-17
+
+### Changed
+
+- Consolidated repository, package, documentation, and notice links on the maintained GuLuLuIT project location.
+- Preserved GPL-3.0-only licensing and inherited copyright attribution without shipping obsolete repository coordinates in distribution metadata.
+
+### Fixed
+
+- Replaced the scheduler-sensitive request-timeout regression test with event-based synchronization so macOS, Linux, and Windows CI are deterministic.
+
 ## 3.1.0 — 2026-09-17
 
 ### Added

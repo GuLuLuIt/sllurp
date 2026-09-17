@@ -11,9 +11,9 @@ logging, reader management, runtime configuration, RF telemetry, and
 troubleshooting.
 
 Install the feature set documented in this repository from the immutable
-``v3.1.0`` release tag::
+``v3.1.1`` release tag::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
 
 The ``sllurp`` package on PyPI is the upstream distribution. It is useful when
 you intentionally want the upstream release, but it is not an equivalent

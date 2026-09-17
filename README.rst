@@ -30,13 +30,13 @@ configuration, RF telemetry, and troubleshooting.
 
 Install the current immutable release from GitHub::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
 
-Or download ``sllurp-3.1.0-py3-none-any.whl`` from the
-`v3.1.0 GitHub Release <https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.0>`_
+Or download ``sllurp-3.1.1-py3-none-any.whl`` from the
+`v3.1.1 GitHub Release <https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.1>`_
 and install the file directly::
 
-    python -m pip install ./sllurp-3.1.0-py3-none-any.whl
+    python -m pip install ./sllurp-3.1.1-py3-none-any.whl
 
 Verify the installed command::
 
@@ -310,11 +310,11 @@ Project maintenance
 License and lineage
 -------------------
 
-Repository-level metadata follows upstream and identifies ``GPL-3.0-only``.
+Repository-level metadata identifies ``GPL-3.0-only``.
 See ``LICENSE.txt`` for the canonical repository license text and ``NOTICE.md``
 for attribution plus the inherited file-level license-notice caveat. This
-repository is a modified fork of
-`the upstream sllurp project <https://github.com/sllurp/sllurp>`_.
+repository preserves the copyright notices of the earlier GPL-licensed work
+and the contributions maintained by GuLuLuIT.
 
 Support and bug reports
 -----------------------

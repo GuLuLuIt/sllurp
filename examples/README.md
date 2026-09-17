@@ -13,7 +13,7 @@ python -m pip install -e .
 Or install directly from GitHub:
 
 ```bash
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.0"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
 ```
 
 Run the CLI help before changing reader or tag state:
