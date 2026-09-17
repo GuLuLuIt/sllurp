@@ -136,7 +136,10 @@ def parse_args():
         type=int,
         dest="every_n",
         metavar="N",
-        help="issue a TagReport every N tags",
+        help=(
+            "legacy: end the AISpec after N tag observations; accumulated "
+            "observations report at the inventory boundary"
+        ),
     )
     parser.add_argument(
         "-a",
