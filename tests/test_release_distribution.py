@@ -63,7 +63,15 @@ def test_project_owned_files_do_not_reference_obsolete_repository_coordinates():
         "sllurp" + "/sllurp",
         "github.com/" + "sllurp" + "/sllurp",
     )
-    ignored_parts = {".git", ".pytest_cache", "__pycache__", "build", "dist"}
+    ignored_parts = {
+        ".git",
+        ".hypothesis",
+        ".pytest_cache",
+        "__pycache__",
+        "build",
+        "dist",
+        "sllurp.egg-info",
+    }
     violations = []
     for path in ROOT.rglob("*"):
         if not path.is_file() or any(part in ignored_parts for part in path.parts):
