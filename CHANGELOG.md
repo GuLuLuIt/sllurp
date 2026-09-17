@@ -22,6 +22,8 @@ All notable changes to this fork should be documented here. This project uses se
 - Release-build guards that require `vX.Y.Z` tags and built artifacts to match the package version.
 - Repository-hygiene regression coverage for obsolete binary/reference artifacts and example dependency drift.
 - FastAPI example smoke testing against the repository package on Python 3.10 and 3.14.
+- Explicit `ro_report_every_n_tags` Python and CLI configuration for
+  continuous N-tag `ROReportSpec` delivery without ending the AISpec.
 
 ### Changed
 
@@ -42,6 +44,9 @@ All notable changes to this fork should be documented here. This project uses se
 - Corrected Impinj frequency capability decoding to advance 32-bit frequency entries by the correct stride.
 - Corrected audited LLRP wire encoders/decoders, rollback after rejected configuration operations, mode reset, disconnect cleanup, FastAPI shutdown, diagnostic logging, CLI exit status, detached state snapshots, documentation recipes, and minimum build-backend compatibility. Logging setup preserves application-owned handlers.
 - Preserved the existing unlimited ROReportSpec count (N=0), including explicit AISpec batching and duration triggers. The proposed N=1 default was withdrawn because it changes reporting behavior; see LLRP 1.1 section 14.2.1: https://ref.gs1.org/standards/llrp/1.1.0/.
+- Corrected report-control documentation and logging to identify the legacy
+  `report_every_n_tags` / `report_timeout_ms` behavior as AISpec
+  termination rather than continuous report cadence.
 
 ## Release history
 

@@ -85,6 +85,7 @@ def main(args):
 
     factory_args = dict(
         duration=args.time,
+        ro_report_every_n_tags=getattr(args, "ro_report_every_n_tags", None),
         report_every_n_tags=args.every_n,
         dedup_seconds=getattr(args, "dedup_seconds", None),
         dedup_backend=getattr(args, "dedup_backend", "auto"),

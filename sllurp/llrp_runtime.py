@@ -28,6 +28,7 @@ CONFIG_FIELD_POLICY = {
     "session": ACTION_ROSPEC,
     "mode_identifier": ACTION_ROSPEC,
     "tag_population": ACTION_ROSPEC,
+    "ro_report_every_n_tags": ACTION_ROSPEC,
     "report_every_n_tags": ACTION_ROSPEC,
     "report_timeout_ms": ACTION_ROSPEC,
     "dedup_seconds": ACTION_ROSPEC,

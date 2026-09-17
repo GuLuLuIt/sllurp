@@ -900,6 +900,7 @@ class LLRPClient:
             seconds <= ZEBRA_TIMED_DEDUP_MAX_SECONDS
             and self._supports_zebra_periodic_tag_reports(capdict)
             and self.config.report_every_n_tags is None
+            and self.config.ro_report_every_n_tags is None
         )
 
         if requested == "hardware" and not hardware_supported:
@@ -1652,6 +1653,7 @@ class LLRPClient:
             duration_sec=config.duration,
             report_every_n_tags=config.report_every_n_tags,
             report_timeout_ms=config.report_timeout_ms,
+            ro_report_every_n_tags=config.ro_report_every_n_tags,
             tx_power=config.tx_power,
             antennas=config.antennas,
             tag_content_selector=config.tag_content_selector,
@@ -2066,6 +2068,9 @@ class LLRPReaderConfig:
         self.session = 2
         self.mode_identifier = None
         self.tag_population = 4
+        # ROReportSpec cadence is independent of AISpec lifetime. The legacy
+        # report_* fields below retain their historical AISpec-stop semantics.
+        self.ro_report_every_n_tags = None
         self.report_every_n_tags = None
         self.report_timeout_ms = 0
         self.dedup_seconds = None
@@ -2171,6 +2176,15 @@ class LLRPReaderConfig:
                 setattr(self, key, value)
 
     def validate_config(self):
+        if self.ro_report_every_n_tags is not None and (
+            isinstance(self.ro_report_every_n_tags, bool)
+            or not isinstance(self.ro_report_every_n_tags, int)
+            or not 1 <= self.ro_report_every_n_tags <= 65535
+        ):
+            raise LLRPError(
+                "ro_report_every_n_tags must be an integer from 1 through 65535 "
+                "or None"
+            )
         if not isinstance(self.antennas, (list, tuple)) or not self.antennas:
             raise LLRPError("antennas must be a non-empty list or tuple")
         if any(isinstance(ant, bool) or not isinstance(ant, int) or ant < 0 for ant in self.antennas):
