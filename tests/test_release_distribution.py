@@ -220,3 +220,4 @@ def test_project_owned_files_do_not_reference_obsolete_repository_coordinates():
         if any(value in text for value in forbidden):
             violations.append(path.relative_to(ROOT).as_posix())
     assert violations == []
+

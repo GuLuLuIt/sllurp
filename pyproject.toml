@@ -73,3 +73,4 @@ include = ["sllurp*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "sllurp.version.__version__"}
+

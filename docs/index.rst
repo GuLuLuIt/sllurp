@@ -41,8 +41,7 @@ Topic                            Documentation
 ===============================  ================================================
 First install and first read     `Quick Start <../QUICKSTART.md>`_
 Operations and production use    `User guide <../USER_GUIDE.md>`_
-Python API and examples           `API reference <../API_REFERENCE.md>`_
-Architecture and development     `Developer guide <../DEVELOPER_GUIDE.md>`_
+Python API and examples           `API reference <../API_REFERENCE.md>`_Architecture and development     `Developer guide <../DEVELOPER_GUIDE.md>`_
 Runnable examples                `examples.rst <examples.rst>`_
 Reader compatibility             `readers.rst <readers.rst>`_
 Secure LLRP / TLS                `secure_llrp.rst <secure_llrp.rst>`_
