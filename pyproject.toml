@@ -63,6 +63,9 @@ Changelog = "https://github.com/GuLuLuIt/sllurp/blob/main/CHANGELOG.md"
 Contributing = "https://github.com/GuLuLuIt/sllurp/blob/main/CONTRIBUTING.md"
 Security = "https://github.com/GuLuLuIt/sllurp/blob/main/SECURITY.md"
 Support = "https://github.com/GuLuLuIt/sllurp/blob/main/SUPPORT.md"
+Issues = "https://github.com/GuLuLuIt/sllurp/issues/new/choose"
+Releases = "https://github.com/GuLuLuIt/sllurp/releases"
+"Release Notes" = "https://github.com/GuLuLuIt/sllurp/blob/main/RELEASE_NOTES.md"
 
 [tool.setuptools.packages.find]
 include = ["sllurp*"]
