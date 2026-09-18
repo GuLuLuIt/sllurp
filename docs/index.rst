@@ -97,4 +97,3 @@ Sllurp's core reader-control protocol is LLRP. Plain LLRP normally uses TCP
 5084 and Secure LLRP normally uses TCP 5085. Vendor HTTP/HTTPS/SOAP reader
 management is separate from LLRP inventory and is only used through documented
 vendor management APIs.
-

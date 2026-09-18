@@ -125,4 +125,3 @@ jobs:
               --title "Sllurp $GITHUB_REF_NAME" \
               --notes-file RELEASE_NOTES.md
           fi
-
