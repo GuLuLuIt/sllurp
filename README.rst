@@ -10,6 +10,10 @@ Sllurp — production-focused Python LLRP client for RFID readers
    :target: https://github.com/GuLuLuIt/sllurp/actions/workflows/test.yml
    :alt: Tests
 
+.. image:: https://img.shields.io/github/v/release/GuLuLuIt/sllurp?display_name=tag&sort=semver
+   :target: https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.2
+   :alt: Latest release
+
 .. image:: https://img.shields.io/badge/license-GPL--3.0--only-blue.svg
    :target: LICENSE.txt
    :alt: GPL-3.0-only
@@ -17,6 +21,34 @@ Sllurp — production-focused Python LLRP client for RFID readers
 Sllurp is a pure-Python client and library for **LLRP-based RFID readers** with
 secure LLRP/TLS, timed tag deduplication, reader-management adapters, runtime
 configuration, RF telemetry, vendor extensions, and multi-reader support.
+
+Sllurp 3.1.2 — features and fixes
+---------------------------------
+
+**Major features**
+
+* secure LLRP/TLS with certificate verification, private CAs, mTLS, and SNI;
+* continuous N-tag report cadence independent from antenna-inventory
+  termination, plus bounded timed deduplication and RF telemetry;
+* transactional live configuration, exact request correlation, multi-reader
+  operation, and model-aware reader compatibility;
+* generic and vendor-aware reader management for supported Zebra, Impinj, and
+  Honeywell/Intermec interfaces.
+
+**Major fixes**
+
+* hardened protocol decoding, wire-format handling, XML parsing, and message
+  size validation;
+* deterministic timeout/cancellation behavior and safe disconnect, reconnect,
+  callback, and shutdown cleanup;
+* correct rollback after rejected or partial live-configuration operations;
+* corrected CLI exit status, logging isolation, CSV output, timestamps, IPv6,
+  tag-write reuse, and input validation.
+
+See the `complete 3.1.2 release notes <RELEASE_NOTES.md>`_ for every included
+feature, bug-fix family, compatibility behavior, and deprecated or legacy
+interface. The `changelog <CHANGELOG.md>`_ provides the corresponding
+maintainer-facing summary.
 
 Quick Start
 -----------
@@ -182,8 +214,8 @@ Example generic transport:
 
     manager = HTTPReaderManager(
         "https://reader.example",
-        username="admin",
-        password="secret",
+        username="READER_USERNAME",
+        password="READER_PASSWORD",
     )
     settings = manager.get_settings("/api/settings")
 
@@ -324,6 +356,8 @@ and the contributions maintained by GuLuLuIT.
 Support and bug reports
 -----------------------
 
-Start with `SUPPORT.md <SUPPORT.md>`_. When GitHub Issues are enabled for this
-fork, use the structured bug/feature templates. Security vulnerabilities should
-follow `SECURITY.md <SECURITY.md>`_ instead of being disclosed publicly.
+Start with `SUPPORT.md <SUPPORT.md>`_, then use the
+`structured issue forms <https://github.com/GuLuLuIt/sllurp/issues/new/choose>`_
+for bugs, hardware compatibility reports, and feature requests. Security
+vulnerabilities should follow `SECURITY.md <SECURITY.md>`_ instead of being
+disclosed publicly.
