@@ -2,7 +2,9 @@
 
 ## Supported code
 
-Security fixes are targeted at the current `main` branch and, when this fork starts publishing releases, the latest maintained release. Older snapshots are not guaranteed to receive backports.
+Security fixes are targeted at the current `main` branch and the latest
+maintained release, [v3.1.2](https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.2).
+Older snapshots are not guaranteed to receive backports.
 
 ## Reporting a vulnerability
 
