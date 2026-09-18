@@ -2,6 +2,10 @@
 
 Thanks for improving Sllurp. This fork accepts bug fixes, interoperability improvements, tests, documentation, and reader-management work that can be supported by code, protocol documentation, or reproducible hardware evidence.
 
+Read [`DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md) for the architecture, public
+API boundary, protocol and management extension workflows, concurrency rules,
+test taxonomy, and documentation contract.
+
 ## Development setup
 
 ```bash

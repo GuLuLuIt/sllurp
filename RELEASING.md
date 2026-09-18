@@ -24,7 +24,7 @@ This fork publishes validated distributions through GitHub Releases. A matching 
 
 5. Verify the built wheel in a clean virtual environment and confirm `sllurp --version` reports the release version.
 6. Create and merge a release-preparation pull request.
-7. Tag the exact release commit, for example `v3.1.1`.
+7. Tag the exact release commit, for example `v3.1.2`.
 8. Let the release-build workflow build and validate the source distribution and wheel, generate checksums and attestations, and create the GitHub Release with downloadable assets.
 9. Verify the published release assets and attestation, then test the downloaded wheel in a clean environment.
 

@@ -2,6 +2,30 @@
 
 All notable changes to this fork should be documented here. This project uses semantic versioning for tagged releases when releases are published.
 
+## 3.1.2 — 2026-09-17
+
+### Added
+
+- A task-oriented user guide covering protocol boundaries, CLI workflows,
+  application lifecycle, callback threading, report cadence, deduplication,
+  live configuration, multi-reader services, production readiness, and
+  symptom-driven troubleshooting.
+- A developer guide covering repository architecture, state and request
+  correlation, configuration transitions, public APIs, protocol and reader
+  extensions, management adapters, CLI design, testing, documentation, and
+  release maintenance.
+- Source-native diagrams for the reader session, multi-reader worker model,
+  internal data flow, and live configuration decision path.
+- Packaging and regression checks that keep the new user and developer guides
+  present and discoverable in release distributions.
+
+### Changed
+
+- Documentation navigation now gives first-time users, production operators,
+  contributors, and maintainers distinct starting points.
+- Release and installation examples now identify the 3.1.2 documentation
+  release consistently.
+
 ## 3.1.1 — 2026-09-17
 
 ### Changed

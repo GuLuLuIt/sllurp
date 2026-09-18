@@ -11,9 +11,9 @@ logging, reader management, runtime configuration, RF telemetry, and
 troubleshooting.
 
 Install the feature set documented in this repository from the immutable
-``v3.1.1`` release tag::
+``v3.1.2`` release tag::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.2"
 
 The ``sllurp`` package on PyPI is the upstream distribution. It is useful when
 you intentionally want the upstream release, but it is not an equivalent
@@ -40,6 +40,8 @@ Feature guide
 Topic                            Documentation
 ===============================  ================================================
 First install and first read     `Quick Start <../QUICKSTART.md>`_
+Operations and production use    `User guide <../USER_GUIDE.md>`_
+Architecture and development     `Developer guide <../DEVELOPER_GUIDE.md>`_
 Runnable examples                `examples.rst <examples.rst>`_
 Reader compatibility             `readers.rst <readers.rst>`_
 Secure LLRP / TLS                `secure_llrp.rst <secure_llrp.rst>`_

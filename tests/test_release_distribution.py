@@ -12,10 +12,21 @@ def read(relative: str) -> str:
 
 
 def test_release_identity_and_installation_docs_are_immutable():
-    assert __version__ == "3.1.1"
-    assert "## 3.1.1 — 2026-09-17" in read("CHANGELOG.md")
-    assert "@v3.1.1" in read("README.rst")
-    assert "releases/tag/v3.1.1" in read("README.rst")
+    assert __version__ == "3.1.2"
+    assert "## 3.1.2 — 2026-09-17" in read("CHANGELOG.md")
+    assert "@v3.1.2" in read("README.rst")
+    assert "releases/tag/v3.1.2" in read("README.rst")
+    for path in (
+        "README.rst",
+        "QUICKSTART.md",
+        "USER_GUIDE.md",
+        "docs/index.rst",
+        "examples/README.md",
+        "RELEASE_NOTES.md",
+        "RELEASING.md",
+    ):
+        assert "3.1.2" in read(path)
+
     for path in ("README.rst", "QUICKSTART.md", "docs/index.rst", "examples/README.md"):
         assert "@main" not in read(path)
 
@@ -42,6 +53,8 @@ def test_source_distribution_contains_release_and_legal_documents():
     for expected in (
         "README.rst",
         "QUICKSTART.md",
+        "USER_GUIDE.md",
+        "DEVELOPER_GUIDE.md",
         "LICENSE.txt",
         "NOTICE.md",
         "CHANGELOG.md",
@@ -49,6 +62,34 @@ def test_source_distribution_contains_release_and_legal_documents():
         "RELEASE_NOTES.md",
     ):
         assert f"include {expected}" in manifest
+
+
+def test_user_and_developer_documentation_are_discoverable():
+    readme = read("README.rst")
+    index = read("docs/index.rst")
+    user_guide = read("USER_GUIDE.md")
+    developer_guide = read("DEVELOPER_GUIDE.md")
+
+    for expected in ("USER_GUIDE.md", "DEVELOPER_GUIDE.md"):
+        assert expected in readme
+        assert f"../{expected}" in index
+
+    for heading in (
+        "## Command-line workflows",
+        "## Python client lifecycle",
+        "## Production checklist",
+        "## Troubleshooting by symptom",
+    ):
+        assert heading in user_guide
+
+    for heading in (
+        "## Repository map",
+        "## Runtime architecture",
+        "## Configuration model",
+        "## Test strategy",
+        "## Documentation contract",
+    ):
+        assert heading in developer_guide
 
 
 def test_pypi_ownership_boundary_remains_explicit():

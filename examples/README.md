@@ -13,7 +13,7 @@ python -m pip install -e .
 Or install directly from GitHub:
 
 ```bash
-python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
+python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.2"
 ```
 
 Run the CLI help before changing reader or tag state:
@@ -47,4 +47,6 @@ sllurp access --help
 - Tag writes change tag memory. Test write operations on disposable/test tags first.
 - Network, region, firmware, reboot, and reader-management changes can interrupt reader access. Read the vendor guide before applying them.
 
-For installation and CLI onboarding, see [`../QUICKSTART.md`](../QUICKSTART.md). For the feature map, see [`../docs/index.rst`](../docs/index.rst).
+For installation and CLI onboarding, see [`../QUICKSTART.md`](../QUICKSTART.md).
+For operational guidance, see [`../USER_GUIDE.md`](../USER_GUIDE.md). For the
+feature map, see [`../docs/index.rst`](../docs/index.rst).
