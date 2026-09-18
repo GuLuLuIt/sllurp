@@ -3,8 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from sllurp import llrp_runtime
 from sllurp.llrp import LLRPClient, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
 from sllurp.llrp_errors import ReaderConfigurationError
+from tests.timer_support import ManualTimer
 
 
 class Response:
@@ -81,24 +83,22 @@ def test_duplicate_response_is_ignored_after_completion():
     assert calls == [True]
 
 
-def test_request_timeout_cleans_pending_callback():
+def test_request_timeout_cleans_pending_callback(monkeypatch):
+    ManualTimer.reset()
+    monkeypatch.setattr(llrp_runtime, "Timer", ManualTimer)
     cfg = LLRPReaderConfig({"request_timeout": 0.02})
     client = LLRPClient(cfg, transport_tx_write=lambda data: None)
     client.state = LLRPReaderState.STATE_CONNECTED
     calls = []
-    callback_called = threading.Event()
 
     def on_complete(state, success):
         calls.append(success)
-        callback_called.set()
 
     client.send_GET_READER_CONFIG(on_complete)
 
-    # Synchronize with the timer callback instead of assuming the operating
-    # system will schedule its thread within a fixed sleep interval.  Busy CI
-    # hosts, especially macOS runners, may deliver the timeout correctly but
-    # resume the test thread before the callback has finished.
-    assert callback_called.wait(timeout=1.0)
+    assert len(ManualTimer.created) == 1
+    assert ManualTimer.created[0].interval == 0.02
+    ManualTimer.created[0].fire()
     assert calls == [False]
     assert not client._pending_requests.has_response_type("GET_READER_CONFIG_RESPONSE")
 
@@ -306,3 +306,4 @@ def test_inventory_restart_and_rollback_failure_enters_disconnected_state(monkey
     assert transition.done and not transition.succeeded
     assert client.config is old
     assert client.state == LLRPReaderState.STATE_DISCONNECTED
+

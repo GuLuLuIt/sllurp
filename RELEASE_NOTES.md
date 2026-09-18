@@ -73,6 +73,8 @@ It is not merely a documentation update over an earlier public package.
 ### Platforms, package, and documentation
 
 - Python 3.10 through 3.14 on Windows, Linux, and macOS.
+- macOS validation uses project-owned test imports and controlled timers so
+  results do not depend on third-party namespace packages or runner scheduling.
 - A platform-independent wheel and source distribution.
 - A generated `sllurp` command wrapper that reports version 3.1.2.
 - SHA-256 checksums, downloadable workflow artifacts, and build-provenance
@@ -127,8 +129,9 @@ It is not merely a documentation update over an earlier public package.
 - Repeated EOF and overlapping cleanup paths produce one disconnect
   notification.
 - Request timeout and response races cannot complete the same request twice.
-- Pause/resume and timeout tests synchronize on actual state rather than
-  scheduler timing.
+- Pause/resume tests synchronize on actual state, and timeout tests use
+  controlled timers instead of wall-clock sleeps or operating-system thread
+  scheduling.
 - Callback registration changes during dispatch take effect safely on the next
   dispatch.
 - FastAPI updates are bounded and application shutdown stops reader activity.
@@ -202,3 +205,4 @@ Install the wheel or immutable GitHub release tag from this repository.
 Sllurp 3.1.2 is distributed under GPL-3.0-only and preserves inherited
 source-file copyright notices. `LICENSE.txt` contains the license text and
 `NOTICE.md` records attribution. Neither file is a version-history notice.
+
