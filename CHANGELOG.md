@@ -161,6 +161,9 @@ the [user guide](USER_GUIDE.md) explains production decisions and recovery.
 
 - An independently installable `sllurp-3.1.2-py3-none-any.whl` and source
   distribution for Python 3.10 through 3.14 on Windows, Linux, and macOS.
+- Deterministic macOS validation with an explicit project test package and
+  controlled timeout timers, avoiding namespace collisions and scheduler
+  races on busy hosted runners.
 - A generated `sllurp` command wrapper whose version is sourced from the
   package, plus release guards requiring tags, artifact names, and metadata to
   agree.
@@ -206,8 +209,8 @@ the [user guide](USER_GUIDE.md) explains production decisions and recovery.
   close, peer EOF, or repeated cleanup paths overlap.
 - Prevent request timeout and response handling from completing the same
   operation twice.
-- Make timed pause/resume and timeout behavior event-driven and
-  scheduler-independent.
+- Make timed pause/resume behavior event-driven and verify timeout behavior
+  with controlled timers instead of wall-clock sleeps.
 - Protect callback iteration when callbacks add or remove callbacks during
   dispatch.
 - Bound asynchronous FastAPI tag updates and cleanly stop reader threads during
@@ -252,3 +255,4 @@ the [user guide](USER_GUIDE.md) explains production decisions and recovery.
   administration.
 - Obsolete repository wrappers and the superseded Tornado demonstration are
   not shipped. The maintained web example uses FastAPI and WebSockets.
+

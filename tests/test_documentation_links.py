@@ -19,7 +19,20 @@ IGNORED_PARTS = {
     "build",
     "dist",
     "sllurp.egg-info",
+    "site-packages",
+    "venv",
 }
+
+
+def _is_generated_or_environment_path(path):
+    parts = path.relative_to(ROOT).parts
+    return any(
+        part in IGNORED_PARTS
+        or part == ".venv"
+        or part.endswith(".egg-info")
+        or part.startswith((".artifacts-", ".pytest-", ".wheel-smoke-"))
+        for part in parts
+    )
 
 
 def _documentation_files():
@@ -27,7 +40,7 @@ def _documentation_files():
     return sorted(
         path
         for path in files
-        if not any(part in IGNORED_PARTS for part in path.relative_to(ROOT).parts)
+        if not _is_generated_or_environment_path(path)
     )
 
 

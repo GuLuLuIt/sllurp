@@ -1,6 +1,4 @@
-import time
-from threading import Event
-
+from sllurp import llrp_runtime
 from sllurp.llrp import LLRPReaderConfig
 from sllurp.llrp_runtime import (
     ACTION_CLIENT,
@@ -10,6 +8,7 @@ from sllurp.llrp_runtime import (
     PendingRequestRegistry,
     build_config_transition_plan,
 )
+from tests.timer_support import ManualTimer
 
 
 def test_config_transition_plan_classifies_changes():
@@ -58,39 +57,43 @@ def test_pending_request_registry_matches_exact_message_id():
     assert registry.is_stale("GET_READER_CONFIG_RESPONSE", 10)
 
 
-def test_pending_request_registry_timeout_is_deterministic():
+def test_pending_request_registry_timeout_is_deterministic(monkeypatch):
+    ManualTimer.reset()
+    monkeypatch.setattr(llrp_runtime, "Timer", ManualTimer)
     registry = PendingRequestRegistry()
     expired = []
-    timeout_called = Event()
-
-    def on_timeout(pending):
-        expired.append(pending)
-        timeout_called.set()
 
     registry.register(
         "ADD_ROSPEC_RESPONSE",
         22,
         callback="cb",
         timeout=0.02,
-        on_timeout=on_timeout,
+        on_timeout=expired.append,
     )
 
-    assert timeout_called.wait(1.0)
+    assert len(ManualTimer.created) == 1
+    assert ManualTimer.created[0].interval == 0.02
+    ManualTimer.created[0].fire()
     assert len(registry) == 0
     assert [pending.message_id for pending in expired] == [22]
     assert registry.is_stale("ADD_ROSPEC_RESPONSE", 22)
 
 
-def test_pending_request_registry_cancel_all_cancels_timers():
+def test_pending_request_registry_cancel_all_cancels_timers(monkeypatch):
+    ManualTimer.reset()
+    monkeypatch.setattr(llrp_runtime, "Timer", ManualTimer)
     registry = PendingRequestRegistry()
     expired = []
     registry.register("A_RESPONSE", 1, timeout=0.03, on_timeout=expired.append)
     registry.register("B_RESPONSE", 2, timeout=0.03, on_timeout=expired.append)
 
     cancelled = registry.cancel_all()
-    time.sleep(0.07)
+    for timer in ManualTimer.created:
+        timer.fire()
 
     assert len(cancelled) == 2
+    assert len(ManualTimer.created) == 2
+    assert all(timer.cancelled for timer in ManualTimer.created)
     assert expired == []
     assert len(registry) == 0
 
@@ -104,3 +107,4 @@ def test_pending_request_registry_type_fallback_requires_exactly_one():
     registry.register("R_RESPONSE", 3, callback="third")
     assert registry.pop_response_type("R_RESPONSE") is None
     assert len(registry) == 2
+
