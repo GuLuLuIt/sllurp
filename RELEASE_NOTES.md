@@ -83,6 +83,21 @@ It is not merely a documentation update over an earlier public package.
 - Runnable inventory, deduplication, telemetry, live-configuration,
   management, FastAPI, WebSocket, and command-line examples.
 
+## Documentation and support
+
+- [Quick Start](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/QUICKSTART.md)
+  for installation, first inventory, platform setup, and troubleshooting.
+- [User guide](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/USER_GUIDE.md)
+  for operations, lifecycle, reporting, deployment, and diagnostics.
+- [Developer guide](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/DEVELOPER_GUIDE.md)
+  for architecture, APIs, protocol extensions, testing, and maintenance.
+- [Examples](https://github.com/GuLuLuIt/sllurp/tree/v3.1.2/examples)
+  for runnable inventory, telemetry, management, and service integrations.
+- [Support guide](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/SUPPORT.md)
+  for useful bug and hardware reports.
+- [Security policy](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/SECURITY.md)
+  for private vulnerability reporting.
+
 ## Material bug fixes included
 
 ### Protocol and decoder correctness
