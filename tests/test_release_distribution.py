@@ -19,6 +19,7 @@ def test_release_identity_and_installation_docs_are_immutable():
         "README.rst",
         "QUICKSTART.md",
         "USER_GUIDE.md",
+        "API_REFERENCE.md",
         "docs/index.rst",
         "examples/README.md",
         "RELEASE_NOTES.md",
@@ -54,6 +55,7 @@ def test_source_distribution_contains_release_and_legal_documents():
         "QUICKSTART.md",
         "USER_GUIDE.md",
         "DEVELOPER_GUIDE.md",
+        "API_REFERENCE.md",
         "LICENSE.txt",
         "NOTICE.md",
         "CHANGELOG.md",
@@ -68,8 +70,9 @@ def test_user_and_developer_documentation_are_discoverable():
     index = read("docs/index.rst")
     user_guide = read("USER_GUIDE.md")
     developer_guide = read("DEVELOPER_GUIDE.md")
+    api_reference = read("API_REFERENCE.md")
 
-    for expected in ("USER_GUIDE.md", "DEVELOPER_GUIDE.md"):
+    for expected in ("USER_GUIDE.md", "DEVELOPER_GUIDE.md", "API_REFERENCE.md"):
         assert expected in readme
         assert f"../{expected}" in index
 
@@ -89,6 +92,28 @@ def test_user_and_developer_documentation_are_discoverable():
         "## Documentation contract",
     ):
         assert heading in developer_guide
+
+    for heading in (
+        "## Minimal inventory client",
+        "## `LLRPReaderConfig`",
+        "## `LLRPReaderClient`",
+        "## Live configuration",
+        "## Secure LLRP/TLS",
+        "## Reader management APIs",
+        "## Exceptions and failure handling",
+        "## Compatibility and API boundaries",
+    ):
+        assert heading in api_reference
+
+    for public_name in (
+        "LLRPReaderConfig",
+        "LLRPReaderClient",
+        "LLRPTLSReaderClient",
+        "TagReportDeduplicator",
+        "create_reader_manager",
+        "parse_sgtin_96",
+    ):
+        assert public_name in api_reference
 
 
 def test_repository_support_surfaces_are_complete():

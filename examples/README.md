@@ -48,5 +48,7 @@ sllurp access --help
 - Network, region, firmware, reboot, and reader-management changes can interrupt reader access. Read the vendor guide before applying them.
 
 For installation and CLI onboarding, see [`../QUICKSTART.md`](../QUICKSTART.md).
-For operational guidance, see [`../USER_GUIDE.md`](../USER_GUIDE.md). For the
-feature map, see [`../docs/index.rst`](../docs/index.rst).
+For supported Python interfaces and shorter copyable snippets, see the
+[`3.1.2 API reference`](../API_REFERENCE.md). For operational guidance, see
+[`../USER_GUIDE.md`](../USER_GUIDE.md). For the feature map, see
+[`../docs/index.rst`](../docs/index.rst).

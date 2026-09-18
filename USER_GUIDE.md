@@ -452,6 +452,8 @@ customer data, and tag identifiers as required by your environment.
 ## Where to go next
 
 - [Quick Start](QUICKSTART.md) for platform-specific setup
+- [API reference](API_REFERENCE.md) for Python interfaces, callbacks, fields,
+  return values, exceptions, and copyable examples
 - [Examples](examples/README.md) for runnable programs
 - [Reader compatibility](docs/readers.rst) for model-family notes
 - [Developer guide](DEVELOPER_GUIDE.md) for architecture and contributions

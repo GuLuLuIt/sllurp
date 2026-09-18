@@ -48,7 +48,10 @@ Sllurp 3.1.2 — features and fixes
 See the `complete 3.1.2 release notes <RELEASE_NOTES.md>`_ for every included
 feature, bug-fix family, compatibility behavior, and deprecated or legacy
 interface. The `changelog <CHANGELOG.md>`_ provides the corresponding
-maintainer-facing summary.
+maintainer-facing summary with practical examples. The
+`3.1.2 API reference <API_REFERENCE.md>`_ documents supported Python
+interfaces, configuration fields, callbacks, results, exceptions, and
+copyable examples.
 
 Quick Start
 -----------
