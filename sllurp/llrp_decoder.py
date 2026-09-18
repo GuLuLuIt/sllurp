@@ -1,3 +1,12 @@
+"""Decode LLRP message and parameter headers.
+
+The structures in this module follow GS1 LLRP 1.1 section 17, "LLRP Binary
+Encoding": https://ref.gs1.org/standards/llrp/1.1.0/
+
+All multi-byte integers are in network byte order.  Header decoders return
+lengths in bytes and never consume or mutate their input buffer.
+"""
+
 from struct import Struct
 from struct import error as StructError
 
@@ -6,11 +15,16 @@ from .log import get_logger
 logger = get_logger(__name__)
 
 
+# LLRP 1.1 section 17.1: the first word is Reserved(3), Version(3), Type(10),
+# followed by the 32-bit total message length and 32-bit message ID. ``!`` is
+# intentional: every multi-byte LLRP integer is transmitted in network order.
 msg_header_struct = Struct("!HII")
 msg_header_size = msg_header_struct.size
 msg_header_pack = msg_header_struct.pack
 msg_header_unpack = msg_header_struct.unpack
 
+# A Custom Message appends a 32-bit vendor ID and 8-bit vendor subtype to the
+# common header; the total-length field includes both extensions.
 msg_vendor_subtype_struct = Struct("!IB")
 msg_vendor_subtype_size = msg_vendor_subtype_struct.size
 msg_vendor_subtype_pack = msg_vendor_subtype_struct.pack
@@ -21,12 +35,15 @@ msg_header_custom_pack = msg_header_custom_struct.pack
 msg_header_custom_size = msg_header_custom_struct.size
 
 
-# TV param header: Type
+# LLRP 1.1 section 17.2.1: a TV parameter has a leading one bit followed by a
+# 7-bit type. Its body size is fixed by the parameter type.
 tve_header_struct = Struct("!B")
 tve_header_size = tve_header_struct.size
 tve_header_unpack = tve_header_struct.unpack
 
-# TLV param header: Type, Size
+# LLRP 1.1 section 17.2.1: TLV starts with Reserved(6), Type(10), then a
+# 16-bit total parameter length. Custom TLV parameters append 32-bit vendor
+# and subtype identifiers to this four-byte header.
 tlv_par_header_struct = Struct("!HH")
 tlv_par_header_size = tlv_par_header_struct.size
 tlv_par_header_unpack = tlv_par_header_struct.unpack
@@ -83,6 +100,26 @@ TVE_PARAM_FORMATS = {
 
 
 def msg_header_encode(msgtype, version, length, msgid, vendorid=0, subtype=0):
+    """Encode an LLRP message header.
+
+    Args:
+        msgtype: Ten-bit LLRP message type. Values are masked to ten bits.
+        version: Three-bit LLRP version value. Values are masked to three bits.
+        length: Message-body length in bytes, excluding the generated header.
+        msgid: Unsigned 32-bit request/correlation identifier.
+        vendorid: Unsigned 32-bit vendor identifier for type 1023.
+        subtype: Unsigned 8-bit vendor subtype for type 1023.
+
+    Returns:
+        The common or custom header as network-order :class:`bytes`. The
+        encoded total length includes the header.
+
+    Raises:
+        struct.error: If an integer does not fit its on-wire field.
+
+    Protocol:
+        GS1 LLRP 1.1 section 17.1, "Messages".
+    """
     ver = version & 0x07
     msgtype = msgtype & 0x03FF
 
@@ -99,6 +136,20 @@ def msg_header_encode(msgtype, version, length, msgid, vendorid=0, subtype=0):
 
 
 def msg_header_decode(data):
+    """Decode and validate the header at the start of ``data``.
+
+    Returns:
+        ``(message_type, vendor_id, subtype, version, header_length,
+        total_length, message_id)``. Lengths are bytes. Vendor values are zero
+        for a non-custom message.
+
+    Raises:
+        ValueError: If the header is truncated, structurally invalid, or its
+            declared total length is shorter than the applicable header.
+
+    Protocol:
+        GS1 LLRP 1.1 section 17.1, "Messages".
+    """
     if len(data) < msg_header_size:
         raise ValueError(
             f"truncated LLRP message header: need {msg_header_size} bytes, got {len(data)}"
@@ -136,6 +187,19 @@ def msg_header_decode(data):
 
 
 def tlv_param_header_decode(data):
+    """Decode a TLV parameter header without decoding its body.
+
+    Returns:
+        ``(parameter_type, vendor_id, subtype, header_length, total_length)``.
+        Lengths are bytes. A truncated base/custom header returns
+        ``(None, 0, 0, 0, 0)`` so the streaming caller can await more data.
+
+    Raises:
+        ValueError: If the declared total length is shorter than its header.
+
+    Protocol:
+        GS1 LLRP 1.1 section 17.2.1, "TLV and TV Encoding".
+    """
     # Decode for normal param header (non-tve)
     if len(data) < tlv_par_header_size:
         return None, 0, 0, 0, 0
@@ -171,7 +235,15 @@ def tve_param_header_decode(data):
 
     Given an array of bytes, tries to interpret a TVE parameter from the
     beginning of the array.  Returns the decoded data and the number of bytes
-    it read."""
+    it read.
+
+    Returns:
+        ``(parameter_type, header_length, total_length)`` in bytes. Unknown,
+        truncated, or non-TV input returns ``(None, 0, 0)``.
+
+    Protocol:
+        GS1 LLRP 1.1 section 17.2.1, "TLV and TV Encoding".
+    """
 
     if len(data) < tve_header_size:
         return None, 0, 0
@@ -198,6 +270,20 @@ def tve_param_header_decode(data):
 
 
 def param_header_decode(data):
+    """Decode either a TV or TLV parameter header at the start of ``data``.
+
+    TV is tested first because its high marker bit distinguishes it from TLV.
+
+    Returns:
+        ``(parameter_type, vendor_id, subtype, header_length, total_length)``;
+        lengths are bytes and vendor values are zero for standard parameters.
+
+    Raises:
+        ValueError: If a TLV header declares an impossible length.
+
+    Protocol:
+        GS1 LLRP 1.1 section 17.2.1, "TLV and TV Encoding".
+    """
     vendorid = 0
     subtype = 0
 
@@ -211,3 +297,4 @@ def param_header_decode(data):
         partype, vendorid, subtype, hdr_len, full_length = tlv_param_header_decode(data)
 
     return partype, vendorid, subtype, hdr_len, full_length
+

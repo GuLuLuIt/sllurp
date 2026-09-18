@@ -108,11 +108,13 @@ class TagReportDeduplicator:
 
     @property
     def entry_count(self) -> int:
+        """Return the number of identities currently inside the cooldown window."""
         with self._lock:
             return len(self._seen)
 
     @property
     def evictions(self) -> int:
+        """Return how many live identities were evicted by ``max_entries``."""
         with self._lock:
             return self._evictions
 
@@ -172,3 +174,4 @@ class TagReportDeduplicator:
         unique = self.filter(tag_reports)
         if self.callback is not None and (unique or self.emit_empty):
             self.callback(reader, unique)
+

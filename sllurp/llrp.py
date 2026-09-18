@@ -73,6 +73,21 @@ logger = get_logger(__name__)
 
 
 class LLRPMessage:
+    """Encode or decode one LLRP message.
+
+    Exactly one of ``msgdict`` or ``msgbytes`` is required. Dictionary input is
+    serialized immediately; byte input is decoded immediately. The public
+    attributes ``msgdict``, ``msgbytes``, and ``msgname`` hold the normalized
+    representation, encoded bytes, and symbolic message name respectively.
+
+    Raises:
+        LLRPError: If the message is missing, unknown, truncated, or invalid.
+
+    Protocol:
+        GS1 LLRP 1.1 sections 7 and 17:
+        https://ref.gs1.org/standards/llrp/1.1.0/
+    """
+
     __slots__ = ["msgdict", "msgbytes", "msgname"]
 
     def __init__(self, msgdict=None, msgbytes=None):
@@ -186,6 +201,10 @@ class LLRPMessage:
         self.msgname = name
 
     def isSuccess(self):
+        """Return a truthy success result for messages carrying known status.
+
+        Messages without a recognized status return ``False`` or ``None``.
+        """
         if not self.msgdict:
             return False
         msgName = self.getName()
@@ -205,6 +224,7 @@ class LLRPMessage:
             return False
 
     def getName(self):
+        """Return the symbolic LLRP message name."""
         return self.msgname
 
     def __repr__(self):
@@ -217,6 +237,13 @@ class LLRPMessage:
 
 
 class C1G2TargetTag:
+    """C1G2 access-operation target selection.
+
+    ``MB`` selects Reserved(0), EPC(1), TID(2), or User(3) memory. ``Pointer``
+    is a bit offset. ``TagMask`` and ``TagData`` are bit strings; matching is
+    enabled by default. See GS1 LLRP 1.1 section 16.2.1.3.1.1.
+    """
+
     def __init__(self, MB=0, Pointer=0, TagMask="", TagData=""):
         self.MB = MB
         self.Match = 1
@@ -226,10 +253,16 @@ class C1G2TargetTag:
 
 
 class C1G2OpSpec:
-    pass
+    """Marker base class for C1G2 access-operation specifications.
+
+    Concrete instances are passed to :meth:`LLRPReaderClient.start_access_spec`.
+    Wire layouts come from GS1 LLRP 1.1 section 16.2.1.3.
+    """
 
 
 class C1G2Read(C1G2OpSpec):
+    """Read ``WordCount`` 16-bit words from C1G2 memory at ``WordPtr``."""
+
     def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0, WordCount=0):
         self.OpSpecID = OpSpecID
         self.AccessPassword = AccessPassword
@@ -240,6 +273,12 @@ class C1G2Read(C1G2OpSpec):
 
 
 class C1G2Write(C1G2OpSpec):
+    """Write 16-bit words from ``WriteData`` to C1G2 memory.
+
+    ``WriteDataWordCount`` is a word count, while ``WriteData`` is the packed
+    byte payload. The two values must agree for a valid reader operation.
+    """
+
     def __init__(
         self,
         OpSpecID=0,
@@ -259,12 +298,16 @@ class C1G2Write(C1G2OpSpec):
 
 
 class C1G2Kill(C1G2OpSpec):
+    """Permanently kill a C1G2 tag using its 32-bit kill password."""
+
     def __init__(self, OpSpecID=0, KillPassword=0):
         self.OpSpecID = OpSpecID
         self.KillPassword = KillPassword
 
 
 class C1G2Recommission(C1G2OpSpec):
+    """Issue the optional C1G2 recommission operation and its three flags."""
+
     def __init__(
         self, OpSpecID=0, KillPassword=0, Flag3SB=False, Flag2SB=False, FlagLSB=False
     ):
@@ -277,6 +320,15 @@ class C1G2Recommission(C1G2OpSpec):
 
 
 class C1G2LockPayload:
+    """One privilege/data-field pair used by :class:`C1G2Lock`.
+
+    ``Privilege`` must be 0 through 3 and ``DataField`` 0 through 4, matching
+    the enumerations in GS1 LLRP 1.1 section 16.2.1.3.
+
+    Raises:
+        ValueError: If either enumeration is out of range.
+    """
+
     def __init__(self, Privilege, DataField):
         if Privilege < 0 or Privilege > 3:
             raise ValueError("Invalid Privilege value")
@@ -288,6 +340,12 @@ class C1G2LockPayload:
 
 
 class C1G2Lock(C1G2OpSpec):
+    """Apply one or more :class:`C1G2LockPayload` operations to a tag.
+
+    Raises:
+        ValueError: If ``LockPayload`` is empty.
+    """
+
     def __init__(self, OpSpecID=0, AccessPassword=0, LockPayload=None):
         self.OpSpecID = OpSpecID
         self.AccessPassword = AccessPassword
@@ -299,6 +357,8 @@ class C1G2Lock(C1G2OpSpec):
 
 
 class C1G2BlockErase(C1G2OpSpec):
+    """Erase ``WriteCount`` 16-bit words beginning at ``WordPtr``."""
+
     def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, WordPtr=0, WriteCount=0):
         self.OpSpecID = OpSpecID
         self.AccessPassword = AccessPassword
@@ -309,6 +369,8 @@ class C1G2BlockErase(C1G2OpSpec):
 
 
 class C1G2BlockWrite(C1G2OpSpec):
+    """Write a block of 16-bit words to C1G2 memory."""
+
     def __init__(
         self,
         OpSpecID=0,
@@ -328,6 +390,8 @@ class C1G2BlockWrite(C1G2OpSpec):
 
 
 class C1G2BlockPermalock(C1G2OpSpec):
+    """Permanently lock C1G2 memory blocks selected by ``BlockMask``."""
+
     def __init__(
         self,
         OpSpecID=0,
@@ -347,6 +411,8 @@ class C1G2BlockPermalock(C1G2OpSpec):
 
 
 class C1G2GetBlockPermalockStatus(C1G2OpSpec):
+    """Query permanent-lock status for ``BlockRange`` C1G2 blocks."""
+
     def __init__(self, OpSpecID=0, AccessPassword=0, MB=0, BlockPtr=0, BlockRange=0):
         self.OpSpecID = OpSpecID
         self.AccessPassword = AccessPassword
@@ -357,6 +423,13 @@ class C1G2GetBlockPermalockStatus(C1G2OpSpec):
 
 
 class LLRPReaderState:
+    """Integer constants for the client-side LLRP connection state machine.
+
+    ``STATE_SENT_*`` values mean a request is outstanding and the matching
+    response drives the next transition. The state callback is invoked after
+    the value changes. These are client runtime states, not protocol values.
+    """
+
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -375,6 +448,7 @@ class LLRPReaderState:
 
     @classmethod
     def getStates(cls):
+        """Yield ``(constant_name, integer_value)`` pairs for every state."""
         state_names = [st for st in dir(cls) if st.startswith("STATE_")]
         for state_name in state_names:
             state_num = getattr(LLRPReaderState, state_name)
@@ -382,6 +456,11 @@ class LLRPReaderState:
 
     @classmethod
     def getStateName(cls, state):
+        """Return the symbolic name for ``state``.
+
+        Raises:
+            LLRPError: If ``state`` is not a defined client state.
+        """
         try:
             return [st_name for st_name, st_num in cls.getStates() if st_num == state][
                 0
@@ -391,6 +470,24 @@ class LLRPReaderState:
 
 
 class LLRPClient:
+    """Transport-independent LLRP protocol and inventory state machine.
+
+    Args:
+        config: Validated :class:`LLRPReaderConfig`.
+        transport_tx_write: Callable accepting encoded :class:`bytes`.
+        state_change_callback: Optional ``callback(new_state)`` invoked
+            synchronously on the thread processing the protocol transition.
+
+    This low-level class does not create sockets. Most applications should use
+    :class:`LLRPReaderClient`. It correlates request/response pairs by both
+    symbolic response name and the 32-bit LLRP message ID. At most one request
+    for a response type is allowed at a time.
+
+    Protocol:
+        GS1 LLRP 1.1 sections 7, 11--16:
+        https://ref.gs1.org/standards/llrp/1.1.0/
+    """
+
     def __init__(self, config, transport_tx_write=None, state_change_callback=None):
 
         self.config = config
@@ -424,7 +521,9 @@ class LLRPClient:
         logger.info("using antennas: %s", config.antennas)
         logger.info("transmit power: %s", config.tx_power)
 
-        # Backwards-compatible callback view plus exact message-ID request tracking.
+        # Correlation invariant: a response is identified by both symbolic
+        # response name and the 32-bit message ID. The response-name callback
+        # view remains for compatibility but must not weaken that exact match.
         self._deferreds = defaultdict(list)
         self._pending_requests = PendingRequestRegistry()
         self._request_lock = RLock()
@@ -543,6 +642,9 @@ class LLRPClient:
         was_paused = original_state == LLRPReaderState.STATE_PAUSED
         new_reader_config_applied = False
 
+        # Rollback invariant: old_config remains authoritative until every new
+        # reader-side step succeeds. If restoration cannot be proven, force the
+        # state to DISCONNECTED rather than expose a mixed configuration.
         def restore_old(error):
             try:
                 self._install_runtime_config(old_config)
@@ -663,6 +765,11 @@ class LLRPClient:
         )
 
     def setState(self, newstate, onCompletion=None):
+        """Set the runtime state and synchronously notify state callbacks.
+
+        ``onCompletion(state)`` is invoked after the registered state-change
+        callback. Passing ``None`` raises :class:`LLRPError`.
+        """
         if newstate is None:
             raise LLRPError("reader state cannot be None")
         if newstate == LLRPReaderState.STATE_DISCONNECTED:
@@ -918,6 +1025,12 @@ class LLRPClient:
         return self.dedup_backend_active
 
     def processDeferreds(self, msgName, isSuccess, message_id=None):
+        """Resolve callbacks for an exact response name and message ID.
+
+        Returns:
+            ``None``. Stale/unknown responses are ignored rather than completing
+            an unrelated request.
+        """
         if message_id is None:
             message_id = getattr(self, "_response_message_id", None)
         deferreds = self._deferreds[msgName]
@@ -1335,18 +1448,25 @@ class LLRPClient:
             )
 
     def panic(self, failure, *args):
+        """Log a protocol failure at error level and return ``failure``."""
         logger.error("panic(): %s", args)
         # logger.error(failure.getErrorMessage())
         # logger.error(failure.getTraceback())
         return failure
 
     def complain(self, failure, *args):
+        """Log a recoverable protocol complaint at warning level."""
         logger.warning("complain(): %s", args)
 
     def send_KEEPALIVE_ACK(self):
+        """Send the acknowledgement required for a reader KEEPALIVE.
+
+        See GS1 LLRP 1.1 sections 14.1.3 and 14.1.4.
+        """
         self.sendMessage({"KEEPALIVE_ACK": {}})
 
     def send_ENABLE_IMPINJ_EXTENSIONS(self, onCompletion):
+        """Request Impinj extension enablement and register ``onCompletion``."""
         self._send_request(
             {"IMPINJ_ENABLE_EXTENSIONS": {}},
             "IMPINJ_ENABLE_EXTENSIONS_RESPONSE",
@@ -1355,6 +1475,7 @@ class LLRPClient:
         )
 
     def send_GET_READER_CAPABILITIES(self, _, onCompletion):
+        """Request all reader capabilities and register ``onCompletion``."""
         self._send_request(
             {"GET_READER_CAPABILITIES": {"RequestedData": Capability_Name2Type["All"]}},
             "GET_READER_CAPABILITIES_RESPONSE",
@@ -1363,6 +1484,7 @@ class LLRPClient:
         )
 
     def send_GET_READER_CONFIG(self, onCompletion):
+        """Request standard and configured vendor reader settings."""
         cfg = {"RequestedData": Capability_Name2Type["All"]}
         if self.config.impinj_extended_configuration:
             cfg["ImpinjRequestedData"] = {"RequestedData": 2000}
@@ -1374,9 +1496,11 @@ class LLRPClient:
         )
 
     def send_ENABLE_EVENTS_AND_REPORTS(self):
+        """Enable delivery of configured reader events and reports."""
         self.sendMessage({"ENABLE_EVENTS_AND_REPORTS": {}})
 
     def send_SET_READER_CONFIG(self, onCompletion):
+        """Write the current event, keepalive, GPI, and vendor configuration."""
         msg = {
             "SET_READER_CONFIG": {
                 "ResetToFactoryDefaults": False,
@@ -1424,6 +1548,7 @@ class LLRPClient:
         )
 
     def send_ADD_ROSPEC(self, rospec, onCompletion):
+        """Send ADD_ROSPEC and correlate its response to ``onCompletion``."""
         logger.debugfast("about to send_ADD_ROSPEC")
         self._send_request(
             {"ADD_ROSPEC": {"ROSpecID": rospec["ROSpecID"], "ROSpec": rospec}},
@@ -1433,6 +1558,7 @@ class LLRPClient:
         )
 
     def send_ENABLE_ROSPEC(self, _, rospec, onCompletion):
+        """Enable ``rospec`` and correlate the response to ``onCompletion``."""
         self._send_request(
             {"ENABLE_ROSPEC": {"ROSpecID": rospec["ROSpecID"]}},
             "ENABLE_ROSPEC_RESPONSE",
@@ -1441,6 +1567,7 @@ class LLRPClient:
         )
 
     def send_START_ROSPEC(self, _, rospec, onCompletion):
+        """Start ``rospec`` and correlate the response to ``onCompletion``."""
         self._send_request(
             {"START_ROSPEC": {"ROSpecID": rospec["ROSpecID"]}},
             "START_ROSPEC_RESPONSE",
@@ -1449,6 +1576,7 @@ class LLRPClient:
         )
 
     def send_ADD_ACCESSSPEC(self, accessSpec, onCompletion):
+        """Add an AccessSpec and correlate its response to ``onCompletion``."""
         self._send_request(
             {"ADD_ACCESSSPEC": {"AccessSpec": accessSpec}},
             "ADD_ACCESSSPEC_RESPONSE",
@@ -1456,6 +1584,7 @@ class LLRPClient:
         )
 
     def send_DISABLE_ACCESSSPEC(self, accessSpecID=1, onCompletion=None):
+        """Disable an AccessSpec by ID, optionally tracking completion."""
         if onCompletion:
             self._send_request(
                 {"DISABLE_ACCESSSPEC": {"AccessSpecID": accessSpecID}},
@@ -1466,6 +1595,7 @@ class LLRPClient:
             self.sendMessage({"DISABLE_ACCESSSPEC": {"AccessSpecID": accessSpecID}})
 
     def send_ENABLE_ACCESSSPEC(self, _, accessSpecID, onCompletion=None):
+        """Enable an AccessSpec by ID, optionally tracking completion."""
         if onCompletion:
             self._send_request(
                 {"ENABLE_ACCESSSPEC": {"AccessSpecID": accessSpecID}},
@@ -1476,6 +1606,7 @@ class LLRPClient:
             self.sendMessage({"ENABLE_ACCESSSPEC": {"AccessSpecID": accessSpecID}})
 
     def send_DELETE_ACCESSSPEC(self, accessSpecID=1, onCompletion=None):
+        """Delete an AccessSpec by ID, optionally tracking completion."""
         msg = {"DELETE_ACCESSSPEC": {"AccessSpecID": accessSpecID}}
         if onCompletion:
             self._send_request(msg, "DELETE_ACCESSSPEC_RESPONSE", onCompletion)
@@ -1483,6 +1614,12 @@ class LLRPClient:
             self.sendMessage(msg)
 
     def startAccess(self, opSpec, targetSpec=None, stopAfterCount=0, accessSpecID=1):
+        """Build, add, and enable one C1G2 AccessSpec asynchronously.
+
+        Args use protocol units: target pointers are bits and operation word
+        pointers/counts are 16-bit words. ``stopAfterCount=0`` means no count
+        stop trigger. See GS1 LLRP 1.1 sections 12 and 16.2.1.3.
+        """
         if not targetSpec:
             # XXX correct default values?
             targetSpec = [C1G2TargetTag()]
@@ -1595,6 +1732,7 @@ class LLRPClient:
         self.send_ADD_ACCESSSPEC(accessSpec, onCompletion=add_accessspec_cb)
 
     def nextAccess(self, opSpec, targetSpec=None, stopAfterCount=0, accessSpecID=1):
+        """Delete the current AccessSpec, then start the supplied operation."""
         def start_next_accessspec_cb(state, is_success, *args):
             self.startAccess(
                 opSpec=opSpec,
@@ -1644,6 +1782,11 @@ class LLRPClient:
         self.send_ADD_ROSPEC(rospec, onCompletion=send_added_rospec_cb)
 
     def getROSpec(self, force_new=False):
+        """Return the cached generated ROSpec, or build a new one.
+
+        ``force_new=True`` discards the cached structure. Generation uses the
+        current validated config and parsed reader capabilities.
+        """
         if self.rospec and not force_new:
             return self.rospec
 
@@ -1714,6 +1857,7 @@ class LLRPClient:
         )
 
     def stopAllROSpecs(self, onCompletion=None):
+        """Delete all ROSpecs and invoke the low-level completion callback."""
         def stop_all_rospecs_cb(state, is_success, *args):
             if not is_success:
                 self.panic(None, "DELETE_ROSPEC failed")
@@ -1802,6 +1946,19 @@ class LLRPClient:
         return ret
 
     def setTxPowerDbm(self, tx_pow_dbm=None):
+        """Select nearest advertised power-table entries for requested dBm.
+
+        Args:
+            tx_pow_dbm: Number for every antenna, antenna-to-dBm mapping, or
+                ``None`` to reuse ``config.tx_power_dbm``.
+
+        Returns:
+            ``True`` when the effective power changed, otherwise ``False``.
+
+        Raises:
+            LLRPError: If no usable capability table exists or antenna keys do
+                not match the configured antennas.
+        """
         valid_indices = set(self.tx_power_indices)
         if not valid_indices:
             valid_indices = set(range(len(self.tx_power_table)))
@@ -2043,7 +2200,17 @@ class LLRPClient:
             return message_id
 
     def sendMessage(self, msg_dict):
-        # Serialize and send one or more LLRP messages.
+        """Serialize and synchronously write one or more LLRP message mappings.
+
+        Returns:
+            A list of ``(message_name, message_id)`` pairs in send order.
+
+        Raises:
+            ReaderConfigurationError: If the same response type is already
+                pending outside the registered-request path.
+            LLRPError: If serialization fails.
+            OSError: If the transport write fails.
+        """
         with self._request_lock:
             if not getattr(self, "_sending_registered_request", False):
                 for name in msg_dict:
@@ -2061,6 +2228,29 @@ class LLRPClient:
             return sent_ids
 
 class LLRPReaderConfig:
+    """Validated configuration used to build and run an LLRP reader session.
+
+    Args:
+        config_dict: Optional mapping of known field names to overrides.
+            Unknown names are ignored for backward compatibility.
+
+    Units are explicit: ``duration``, ``dedup_seconds``, ``request_timeout``,
+    and ``reconnect_delay`` are seconds; ``report_timeout_ms`` and
+    ``keepalive_interval`` are milliseconds; ``tari`` is nanoseconds;
+    ``socket_receive_buffer_bytes`` and ``max_message_size`` are bytes; and
+    ``tx_power_dbm`` is dBm. ``tx_power`` is a reader power-table index, not a
+    dBm value. See ``API_REFERENCE.md`` for every field, default, valid range,
+    and live-update policy.
+
+    Raises:
+        LLRPError: If a field combination or value is invalid.
+
+    Protocol:
+        Inventory, reporting, configuration, and air-protocol fields correspond
+        to GS1 LLRP 1.1 sections 11, 13, 14.2, and 16.2.1:
+        https://ref.gs1.org/standards/llrp/1.1.0/
+    """
+
     def __init__(self, config_dict=None):
 
         self.duration = None
@@ -2171,11 +2361,25 @@ class LLRPReaderConfig:
         self.validate_config()
 
     def update_config(self, config_dict):
+        """Set known fields from ``config_dict`` without validating immediately.
+
+        Construction calls :meth:`validate_config` after this method. Callers
+        invoking it directly should validate before connecting.
+        """
         for key, value in config_dict.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
     def validate_config(self):
+        """Normalize compatibility spellings and validate all constrained fields.
+
+        Returns:
+            ``None``. Some fields are normalized in place, including the legacy
+            ``Channelist`` spelling and scalar transmit-power values.
+
+        Raises:
+            LLRPError: On an invalid type, range, selector, or field dependency.
+        """
         if self.ro_report_every_n_tags is not None and (
             isinstance(self.ro_report_every_n_tags, bool)
             or not isinstance(self.ro_report_every_n_tags, int)
@@ -2225,6 +2429,8 @@ class LLRPReaderConfig:
                 f"max_message_size must be at least {msg_header_len} bytes or None"
             )
         if "Channelist" in self.frequencies:
+            # Compatibility: older releases exposed this misspelling. Normalize
+            # it once so all ROSpec generation uses the protocol-facing name.
             if "ChannelList" not in self.frequencies:
                 self.frequencies["ChannelList"] = self.frequencies["Channelist"]
             self.frequencies.pop("Channelist", None)
@@ -2238,6 +2444,8 @@ class LLRPReaderConfig:
         ):
             raise LLRPError("frequency channel indexes must be positive integers")
         if (self.frequencies.get("Automatic", False) or len(channel_list) > 1) and not self.impinj_fixed_frequency:
+            # Automatic/multi-channel selection in this implementation is an
+            # Impinj custom parameter, not a GS1 base-protocol capability.
             raise LLRPError(
                 "automatic or multiple frequency selection requires "
                 "impinj_fixed_frequency=True because it uses an Impinj vendor extension"
@@ -2363,6 +2571,25 @@ class LLRPReaderConfig:
 
 
 class LLRPReaderClient:
+    """Socket-owning, callback-driven LLRP reader client.
+
+    Args:
+        host: Reader hostname or IP address.
+        port: TCP port. Defaults to 5084, or 5085 when ``config.tls_enabled``.
+        config: Optional :class:`LLRPReaderConfig`.
+        timeout: Socket connect/read timeout in seconds.
+
+    Calling :meth:`connect` normally starts one receive thread. State, message,
+    tag-report, event, and disconnect callbacks execute synchronously on that
+    receive thread, except that a disconnect can also be initiated by the
+    inventory-duration timer thread or the caller performing cleanup. Callback
+    exceptions are logged and isolated. Do not block a callback waiting for a
+    response that the receive thread itself must process.
+
+    Callback lists are lock-protected and copied before invocation, so a
+    callback may add or remove callbacks without corrupting iteration.
+    """
+
     def __init__(self, host, port=None, config=None, timeout=5.0):
         self._port_explicit = port is not None
         if port is None:
@@ -2486,38 +2713,54 @@ class LLRPReaderClient:
         return self.llrp.apply_config(new_config, onCompletion=completed)
 
     def get_peername(self):
+        """Return the configured ``(host, port)`` tuple.
+
+        The value is available while disconnected and does not resolve the
+        hostname.
+        """
         return (self._host, self._port)
 
     @property
     def dedup_backend_active(self):
+        """Return ``disabled``, ``hardware``, or ``memory`` for this session."""
         return self.llrp.dedup_backend_active
 
     def add_state_callback(self, state, cb):
+        """Register ``cb(reader, state)`` for one reader-state value."""
         with self._callback_lock:
             if cb not in self._llrp_state_callbacks[state]:
                 self._llrp_state_callbacks[state].append(cb)
 
     def remove_state_callback(self, state, cb):
+        """Remove a state callback; a missing callback is ignored."""
         with self._callback_lock:
             if cb in self._llrp_state_callbacks[state]:
                 self._llrp_state_callbacks[state].remove(cb)
 
     def clear_state_callback(self, state):
+        """Remove all callbacks registered for ``state``."""
         with self._callback_lock:
             if state in self._llrp_state_callbacks:
                 self._llrp_state_callbacks[state] = []
 
     def add_message_callback(self, msg_type, cb):
+        """Register ``cb(reader, message)`` for an LLRP message name.
+
+        ``message`` is an :class:`LLRPMessage`. The callback runs synchronously
+        in the receive path after decoding and internal protocol handling.
+        """
         with self._callback_lock:
             if cb not in self._llrp_message_callbacks[msg_type]:
                 self._llrp_message_callbacks[msg_type].append(cb)
 
     def remove_message_callback(self, msg_type, cb):
+        """Remove a message callback; a missing callback is ignored."""
         with self._callback_lock:
             if cb in self._llrp_message_callbacks[msg_type]:
                 self._llrp_message_callbacks[msg_type].remove(cb)
 
     def clear_message_callback(self, msg_type=None):
+        """Clear callbacks for one message name, or all names when omitted."""
         with self._callback_lock:
             if msg_type:
                 self._llrp_message_callbacks[msg_type] = []
@@ -2525,6 +2768,12 @@ class LLRPReaderClient:
                 self._llrp_message_callbacks = defaultdict(list)
 
     def add_tag_report_callback(self, cb):
+        """Register ``cb(reader, tag_reports)`` for decoded tag reports.
+
+        ``tag_reports`` is a list of ``TagReportData`` dictionaries from an
+        ``RO_ACCESS_REPORT``. Client deduplication is applied before invocation.
+        The callback normally runs on the receive thread.
+        """
         with self._callback_lock:
             callbacks = self._llrp_message_callbacks["RO_ACCESS_REPORT"]
             if self._on_llrp_tag_report not in callbacks:
@@ -2533,15 +2782,25 @@ class LLRPReaderClient:
                 self._tag_report_callbacks.append(cb)
 
     def remove_tag_report_callback(self, cb):
+        """Remove a tag-report callback; a missing callback is ignored."""
         with self._callback_lock:
             if cb in self._tag_report_callbacks:
                 self._tag_report_callbacks.remove(cb)
 
     def clear_tag_report_callback(self, cb=None):
+        """Remove all tag-report callbacks.
+
+        ``cb`` is accepted for historical call compatibility but is ignored.
+        """
         with self._callback_lock:
             self._tag_report_callbacks = []
 
     def add_event_callback(self, cb):
+        """Register ``cb(reader, event_data)`` for reader notifications.
+
+        ``event_data`` is the decoded ``ReaderEventNotificationData`` mapping.
+        The callback normally runs on the receive thread.
+        """
         with self._callback_lock:
             callbacks = self._llrp_message_callbacks["READER_EVENT_NOTIFICATION"]
             if self._on_llrp_event_notification not in callbacks:
@@ -2550,25 +2809,41 @@ class LLRPReaderClient:
                 self._event_notification_callbacks.append(cb)
 
     def remove_event_callback(self, cb):
+        """Remove an event callback; a missing callback is ignored."""
         with self._callback_lock:
             if cb in self._event_notification_callbacks:
                 self._event_notification_callbacks.remove(cb)
 
     def clear_event_callback(self, cb=None):
+        """Remove all event callbacks.
+
+        ``cb`` is accepted for historical call compatibility but is ignored.
+        """
         with self._callback_lock:
             self._event_notification_callbacks = []
 
     def add_disconnected_callback(self, cb):
+        """Register ``cb(reader)`` for final transport disconnection.
+
+        A session invokes each disconnect callback at most once. Depending on
+        how shutdown starts, it can run on the receive thread, a duration-timer
+        thread, or the thread calling disconnect.
+        """
         with self._callback_lock:
             if cb not in self._disconnected_callbacks:
                 self._disconnected_callbacks.append(cb)
 
     def remove_disconnected_callback(self, cb):
+        """Remove a disconnect callback; a missing callback is ignored."""
         with self._callback_lock:
             if cb in self._disconnected_callbacks:
                 self._disconnected_callbacks.remove(cb)
 
     def clear_disconnected_callback(self, cb=None):
+        """Remove all disconnect callbacks.
+
+        ``cb`` is accepted for historical call compatibility but is ignored.
+        """
         with self._callback_lock:
             self._disconnected_callbacks = []
 
@@ -2678,6 +2953,22 @@ class LLRPReaderClient:
         return False
 
     def connect(self, start_main_loop=True):
+        """Open the reader transport and optionally start the receive thread.
+
+        Args:
+            start_main_loop: When true, start a dedicated receive thread. When
+                false, only connect the socket; the caller must drive
+                :meth:`main_loop`.
+
+        Returns:
+            ``None``.
+
+        Raises:
+            ReaderConfigurationError: If this client is already connected.
+            OSError: If the TCP connection fails and reconnect policy does not
+                recover it.
+            ssl.SSLError: If TLS setup or verification fails.
+        """
         if self._socket_thread:
             raise ReaderConfigurationError("Already connected")
         self.disconnect_requested.clear()
@@ -2716,6 +3007,10 @@ class LLRPReaderClient:
         (or fractions thereof).
         When the timeout argument is None, the operation will block until
         the reader connection thread terminates.
+
+        Returns:
+            ``None``. A finite timeout only limits the join; call
+            :meth:`is_alive` to determine whether shutdown completed.
         """
         if not self._socket_thread and not self._socket:
             logger.warning("Reader not connected. Disconnect is not needed.")
@@ -2743,7 +3038,11 @@ class LLRPReaderClient:
             self.join(timeout)
 
     def hard_disconnect(self):
-        """Stop the recv worker, close sockets, and reset frame state."""
+        """Stop the receive worker, close sockets, and reset frame state.
+
+        No reader acknowledgement is awaited. The operation is idempotent and
+        returns ``None``; socket-shutdown errors are contained during cleanup.
+        """
         self._cancel_duration_timer()
         if self.llrp:
             self.llrp._cancel_pause_resume_timer()
@@ -2770,6 +3069,10 @@ class LLRPReaderClient:
         timeout_per_reader: How long to wait in (s)econds for graceful shutdown
         force: if True, a Hard shutdown of the connection is done if the graceful
         shutdown does not finish after "timeout_per_reader".
+
+        Disconnect callbacks may execute on the calling thread during forced
+        cleanup. Failures for one reader are logged so other readers still
+        receive cleanup attempts.
         """
         # Ask politely first any remaining active reader to stop
         for reader in all_reader_refs:
@@ -2799,8 +3102,9 @@ class LLRPReaderClient:
     def on_lost_connection(self):
         """On lost connection, attempt retries if reconnect enabled
 
-        Return: True if the connection is definitively lost/interrupted.
-                False if it was somehow recovered (reconnected).
+        Returns:
+            ``True`` if the connection is definitively lost/interrupted;
+            ``False`` if reconnect policy restored it.
         """
         logger.info("Lost connection detected")
         # When the connection is lost, reset the reader known state
@@ -2859,6 +3163,13 @@ class LLRPReaderClient:
         return None
 
     def main_loop(self):
+        """Receive and dispatch frames until stopped or the transport fails.
+
+        This is the target of the client's receive thread. Applications using
+        ``connect(start_main_loop=False)`` may call it themselves; it blocks and
+        runs all normal receive callbacks on the calling thread. It returns
+        ``None`` after cleanup.
+        """
         if not self._socket:
             self._socket_thread = None
             raise ReaderConfigurationError("Not connected")
@@ -2919,11 +3230,26 @@ class LLRPReaderClient:
         self._socket_thread = None
 
     def send_data(self, data):
+        """Send all encoded ``data`` bytes on the current transport.
+
+        Raises:
+            ReaderConfigurationError: If no transport is connected.
+            OSError: If the socket send fails.
+        """
         if not self._socket:
             raise ReaderConfigurationError("Not connected")
         self._socket.sendall(data)
 
     def raw_data_received(self, data):
+        """Consume one arbitrary TCP/TLS data chunk and dispatch complete frames.
+
+        Incomplete headers and bodies are retained for the next call. Multiple
+        complete messages in one chunk are processed in wire order.
+
+        Raises:
+            LLRPError: If a declared length is impossible, exceeds
+                ``max_message_size``, or a complete body cannot be decoded.
+        """
         data_len = len(data)
         if is_general_debug_enabled():
             logger.debugfast("got %d bytes from reader: %s", data_len, hexlify(data))
@@ -2980,6 +3306,8 @@ class LLRPReaderClient:
                 except ReaderConfigurationError:
                     raise
                 except LLRPError:
+                    # Do not scan the body for a plausible next header. After a
+                    # malformed complete frame, its true boundary is untrusted.
                     logger.exception(
                         "Failed to decode LLRPMessage; disconnecting to avoid frame desynchronization"
                     )
@@ -2990,10 +3318,25 @@ class LLRPReaderClient:
     def start_access_spec(
         self, op_spec, target_spec=None, stop_after_count=0, access_spec_id=1
     ):
-        """Add and start a AccessOpSpec command
+        """Add and start an AccessSpec containing one C1G2 operation.
 
-        stop_after_count=N: (AccessSpecStopTriggerType) Stop the access spec
-            after N executions of the spec. N=0 to define no stop trigger.
+        Args:
+            op_spec: Concrete :class:`C1G2OpSpec` operation.
+            target_spec: Optional :class:`C1G2TargetTag`; when omitted the
+                default target selection is used.
+            stop_after_count: Number of executions before stopping. Zero means
+                no count stop trigger; negative values are normalized to zero.
+            access_spec_id: Unsigned AccessSpec identifier.
+
+        Returns:
+            ``None``; completion is asynchronous.
+
+        Raises:
+            ValueError: If an operation or target object has the wrong type.
+
+        Protocol:
+            GS1 LLRP 1.1 section 12 and section 16.2.1.3:
+            https://ref.gs1.org/standards/llrp/1.1.0/
         """
         if not isinstance(op_spec, C1G2OpSpec):
             raise ValueError("op_spec needs to be a valid C1G2OpSpec object")
@@ -3117,3 +3460,4 @@ class LLRPReaderClient:
                     "Error during user _on_llrp_event_notification"
                     "callback. Continuing anyway..."
                 )
+
