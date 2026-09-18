@@ -61,7 +61,6 @@ Changelog = "https://github.com/GuLuLuIt/sllurp/blob/main/CHANGELOG.md"
 Contributing = "https://github.com/GuLuLuIt/sllurp/blob/main/CONTRIBUTING.md"
 Security = "https://github.com/GuLuLuIt/sllurp/blob/main/SECURITY.md"
 Support = "https://github.com/GuLuLuIt/sllurp/blob/main/SUPPORT.md"
-Upstream = "https://github.com/sllurp/sllurp"
 
 [tool.setuptools.packages.find]
 include = ["sllurp*"]
