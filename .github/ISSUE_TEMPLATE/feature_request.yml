@@ -1,40 +1,39 @@
 name: Feature request
-description: Propose a focused improvement or reader capability
+description: Propose a supported workflow or interoperability improvement
 title: "[Feature]: "
-labels: []
+labels:
+  - enhancement
 body:
   - type: textarea
-    id: problem
+    id: use_case
     attributes:
-      label: Problem or use case
-      description: What is difficult or impossible today?
+      label: Use case
+      description: Describe the operator or developer problem to solve.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed behavior
-      description: Describe the smallest useful public behavior or API.
+      description: Explain the desired API, command, or documented workflow.
     validations:
       required: true
   - type: input
-    id: reader
+    id: hardware
     attributes:
-      label: Reader model / firmware, if hardware-specific
-      placeholder: "Impinj R700 / firmware ..."
-    validations:
-      required: false
+      label: Relevant reader model and firmware
+      description: Leave blank if the request is not hardware-specific.
   - type: textarea
-    id: evidence
+    id: references
     attributes:
-      label: Vendor documentation or interoperability evidence
-      description: Link stable vendor docs/specs or describe reproducible hardware evidence. Do not include credentials or private material.
-    validations:
-      required: false
-  - type: textarea
-    id: compatibility
+      label: Protocol or vendor documentation
+      description: Link stable specifications for protocol- or vendor-specific behavior.
+  - type: checkboxes
+    id: scope
     attributes:
-      label: Compatibility considerations
-      description: Note protocol, firmware, antenna, TLS, API, or backward-compatibility constraints.
-    validations:
-      required: false
+      label: Scope check
+      options:
+        - label: I checked the 3.1.2 user guide, developer guide, and existing issues.
+          required: true
+        - label: This request does not depend on an undocumented private endpoint.
+          required: true
