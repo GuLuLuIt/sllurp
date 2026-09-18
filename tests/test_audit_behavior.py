@@ -11,7 +11,7 @@ import pytest
 from sllurp.llrp import LLRPClient, LLRPReaderClient, LLRPReaderConfig, LLRPReaderState
 from sllurp.llrp_errors import ReaderConfigurationError
 from sllurp.log import init_logging
-from test_audit_19_regressions import _message_names, _respond
+from tests.test_audit_19_regressions import _message_names, _respond
 
 
 def test_standalone_add_rejection_retains_fatal_error():
@@ -215,3 +215,4 @@ def test_logging_reinitialization_preserves_application_handlers(tmp_path):
                 handler.close()
         root.handlers[:] = old_handlers
         root.setLevel(old_level)
+
