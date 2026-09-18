@@ -4,6 +4,10 @@ Use this guide to go from a new computer to a working LLRP inventory, then enabl
 
 For the features documented in this repository, install the immutable `GuLuLuIt/sllurp` release tag `v3.1.2` or download its wheel from the [v3.1.2 GitHub Release](https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.2). The `sllurp` package on PyPI is a separately maintained distribution and is not an equivalent installation path for GuLuLuIT features.
 
+For supported Python classes, configuration fields, callbacks, return values,
+exceptions, and short examples, use the
+[`Sllurp 3.1.2 API reference`](API_REFERENCE.md).
+
 ## 1. Requirements
 
 - Python **3.10 or newer**
@@ -485,3 +489,4 @@ sllurp access --help
 sllurp log --help
 sllurp reset --help
 ```
+

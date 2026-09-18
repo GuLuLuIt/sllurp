@@ -41,7 +41,8 @@ Topic                            Documentation
 ===============================  ================================================
 First install and first read     `Quick Start <../QUICKSTART.md>`_
 Operations and production use    `User guide <../USER_GUIDE.md>`_
-Python API and examples           `API reference <../API_REFERENCE.md>`_Architecture and development     `Developer guide <../DEVELOPER_GUIDE.md>`_
+Python API and examples           `API reference <../API_REFERENCE.md>`_
+Architecture and development     `Developer guide <../DEVELOPER_GUIDE.md>`_
 Runnable examples                `examples.rst <examples.rst>`_
 Reader compatibility             `readers.rst <readers.rst>`_
 Secure LLRP / TLS                `secure_llrp.rst <secure_llrp.rst>`_
@@ -96,3 +97,4 @@ Sllurp's core reader-control protocol is LLRP. Plain LLRP normally uses TCP
 5084 and Secure LLRP normally uses TCP 5085. Vendor HTTP/HTTPS/SOAP reader
 management is separate from LLRP inventory and is only used through documented
 vendor management APIs.
+

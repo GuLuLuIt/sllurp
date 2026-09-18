@@ -10,16 +10,25 @@ MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 RST_INLINE_LINK_RE = re.compile(r"`[^`]*?<([^>]+)>`_")
 RST_TARGET_RE = re.compile(r"^\s*:target:\s+(\S+)\s*$", re.MULTILINE)
 EXTERNAL_SCHEMES = {"http", "https", "mailto", "ftp", "tel", "data"}
+IGNORED_PARTS = {
+    ".artifacts-api",
+    ".git",
+    ".hypothesis",
+    ".pytest_cache",
+    "__pycache__",
+    "build",
+    "dist",
+    "sllurp.egg-info",
+}
 
 
 def _documentation_files():
-    files = set(ROOT.glob("*.md")) | set(ROOT.glob("*.rst"))
-    for directory in (ROOT / "docs", ROOT / "examples", ROOT / ".github"):
-        if not directory.exists():
-            continue
-        files.update(directory.rglob("*.md"))
-        files.update(directory.rglob("*.rst"))
-    return sorted(files)
+    files = set(ROOT.rglob("*.md")) | set(ROOT.rglob("*.rst"))
+    return sorted(
+        path
+        for path in files
+        if not any(part in IGNORED_PARTS for part in path.relative_to(ROOT).parts)
+    )
 
 
 def _link_targets(text):
@@ -68,3 +77,4 @@ def test_internal_documentation_links_resolve(source):
             broken.append(target)
 
     assert not broken, f"Broken internal links in {source.relative_to(ROOT)}: {broken}"
+
