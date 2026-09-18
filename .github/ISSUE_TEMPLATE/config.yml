@@ -1,8 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Quick Start and troubleshooting
-    url: https://github.com/GuLuLuIt/sllurp/blob/main/QUICKSTART.md
-    about: Installation, first inventory, TLS, management, and troubleshooting.
-  - name: Security policy
+  - name: Usage and troubleshooting guide
+    url: https://github.com/GuLuLuIt/sllurp/blob/main/SUPPORT.md
+    about: Start here for setup, diagnostics, and the information needed in a useful report.
+  - name: Security vulnerability reporting
     url: https://github.com/GuLuLuIt/sllurp/blob/main/SECURITY.md
-    about: Read this before reporting a vulnerability or sensitive security issue.
+    about: Do not disclose vulnerabilities, credentials, keys, or private deployment details publicly.
