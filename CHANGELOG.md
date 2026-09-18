@@ -1,88 +1,189 @@
 # Changelog
 
-All notable changes to this fork should be documented here. This project uses semantic versioning for tagged releases when releases are published.
+Sllurp 3.1.2 is the first complete, supported GuLuLuIT package baseline. This
+entry is cumulative: it records the maintained feature set and material fixes
+shipped in the package rather than relying on incomplete pre-release notices.
 
 ## 3.1.2 — 2026-09-17
 
-### Added
+### Core LLRP and application features
 
-- A task-oriented user guide covering protocol boundaries, CLI workflows,
-  application lifecycle, callback threading, report cadence, deduplication,
-  live configuration, multi-reader services, production readiness, and
-  symptom-driven troubleshooting.
-- A developer guide covering repository architecture, state and request
-  correlation, configuration transitions, public APIs, protocol and reader
-  extensions, management adapters, CLI design, testing, documentation, and
-  release maintenance.
-- Source-native diagrams for the reader session, multi-reader worker model,
-  internal data flow, and live configuration decision path.
-- Packaging and regression checks that keep the new user and developer guides
-  present and discoverable in release distributions.
+- Standard LLRP message and parameter encoding/decoding for reader inventory,
+  reader events, reports, configuration, and C1G2 tag operations.
+- Reader lifecycle management covering connection, reset, capability
+  discovery, inventory start/stop, polite shutdown, forced disconnect,
+  reconnect policy, timed operation, pause, and automatic resume.
+- Python callback APIs for tag reports, reader events, state changes, and
+  disconnect notifications, with stable callback snapshots and exception
+  isolation.
+- C1G2 tag-memory read, write, lock, and kill operations, including one or two
+  target filters, explicit antenna selection, operation counts, and access
+  timing.
+- Multi-reader operation with independent reader state, counts, reconnect
+  behavior, callbacks, deduplication, and serialized downstream logging.
+- Command-line workflows for inventory, CSV logging, tag access, reader reset,
+  installed-version reporting, TLS, filters, antennas, reconnects, duration,
+  reporting cadence, and vendor inventory extensions.
+- Capability-driven antenna selection, transmit-power mapping, mode selection,
+  Tari validation, frequency/channel configuration, and vendor-extension
+  opt-in.
 
-### Changed
+### Secure transport and reader compatibility
 
-- Documentation navigation now gives first-time users, production operators,
-  contributors, and maintainers distinct starting points.
-- Release and installation examples now identify the 3.1.2 documentation
-  release consistently.
+- Plain LLRP and Secure LLRP/TLS clients, with encrypted port selection,
+  certificate and hostname verification, private certificate authorities,
+  mutual TLS, Server Name Indication, custom SSL contexts, and configurable
+  endpoints.
+- A machine-readable reader registry with normalized model lookup, aliases,
+  antenna capabilities, vendor-extension metadata, and conservative Secure
+  LLRP support status.
+- Documented compatibility for supported Zebra/Motorola, Impinj,
+  Honeywell/Intermec, ThingMagic, and Alien reader families, with
+  firmware-dependent claims identified explicitly.
+- IPv4, IPv6, fragmented TCP frames, multiple frames per read, buffered TLS
+  data, and bounded incoming-message handling.
 
-## 3.1.1 — 2026-09-17
+### Reporting, deduplication, and telemetry
 
-### Changed
+- Explicit continuous report cadence through `ro_report_every_n_tags` and the
+  corresponding command-line option, independent from antenna-inventory stop
+  conditions.
+- Timed tag deduplication with automatic backend selection, reader-side
+  hardware suppression where compatible, and a bounded-memory client backend.
+- Deduplication keys that can include EPC, antenna, and configured observation
+  fields; deterministic freezing of nested mappings and sets; eviction and
+  capacity accounting.
+- Standard RF observations including antenna, peak RSSI, channel, first-seen
+  time, last-seen time, and seen count.
+- Supported Zebra telemetry extensions for phase and physical antenna-port
+  information, with antenna-aware behavior for single- and multi-antenna
+  deployments.
+- Impinj inventory extensions for fixed-frequency operation and requested tag
+  report content.
 
-- Consolidated repository, package, documentation, and notice links on the maintained GuLuLuIT project location.
-- Preserved GPL-3.0-only licensing and inherited copyright attribution without shipping obsolete repository coordinates in distribution metadata.
+### Runtime configuration and request handling
 
-### Fixed
+- Validated `LLRPReaderConfig` construction, scalar transmit-power expansion,
+  finite/range checking, incompatible-option rejection, and safe defaults.
+- Transactional `apply_config()` transitions that classify changes as
+  client-only, inventory restart, reader reconfiguration, or reconnect
+  required.
+- `get_config_state()` snapshots for desired, generated, applied, and
+  reader-reported configuration, returned as detached data.
+- Exact pending-request correlation by response type and message ID, with
+  deterministic timeouts, cancellation, duplicate-request rejection, and
+  safe legacy fallback only when one unambiguous request exists.
+- Runtime pause/resume scheduling, duration-based disconnect, state reset, and
+  stale-session invalidation.
 
-- Replaced the scheduler-sensitive request-timeout regression test with event-based synchronization so macOS, Linux, and Windows CI are deterministic.
+### Reader management
 
-## 3.1.0 — 2026-09-17
+- A vendor-neutral HTTP/HTTPS management transport with Basic authentication,
+  JSON/text/binary handling, bounded timeouts, TLS verification, same-origin
+  credential protection, and cross-origin redirect blocking.
+- Zebra fixed-reader Reader Management XML operations for supported device,
+  network, service, certificate, firmware, reboot, region, and LLRP settings.
+- Zebra IoT Connector Local REST operations for status, applications,
+  configuration, start/stop control, and response/error normalization.
+- Impinj R700/R720 REST management for status, documented settings resources,
+  MQTT, power, certificates, service assignment, and diagnostic bundles.
+- Honeywell/Intermec IF-series WSDL/DCWS discovery and SOAP 1.1/1.2 operations,
+  including endpoint overrides and XML hardening.
+- Unified manager selection with explicit rejection of undocumented private
+  web interfaces on legacy reader platforms.
 
-### Added
+### Packaging, platforms, examples, and documentation
 
-- Secure LLRP/TLS configuration and CLI support, including custom CA, mTLS, and server-hostname controls.
-- Timed tag deduplication with automatic, hardware, and memory backends.
-- Generic HTTP/HTTPS reader-management transport with same-origin credential protection.
-- Zebra Reader Management XML and IoT Connector adapters.
-- Impinj R700/R720 REST management.
-- Honeywell/Intermec IF-series WSDL/DCWS management.
-- Transactional runtime configuration and runtime state inspection.
-- RF telemetry with per-antenna observations and supported Zebra phase extensions.
-- Expanded reader compatibility registry and practical feature examples.
-- Cross-platform Quick Start and reorganized feature documentation.
-- `sllurp --version` for identifying the installed command build.
-- Windows and macOS CI coverage in addition to the Linux/Python-version matrix.
-- Regression checks for broken internal links across repository documentation.
-- Release-build guards that require `vX.Y.Z` tags and built artifacts to match the package version.
-- Repository-hygiene regression coverage for obsolete binary/reference artifacts and example dependency drift.
-- FastAPI example smoke testing against the repository package on Python 3.10 and 3.14.
-- Explicit `ro_report_every_n_tags` Python and CLI configuration for
-  continuous N-tag `ROReportSpec` delivery without ending the AISpec.
+- An independently installable `sllurp-3.1.2-py3-none-any.whl` and source
+  distribution for Python 3.10 through 3.14 on Windows, Linux, and macOS.
+- A generated `sllurp` command wrapper whose version is sourced from the
+  package, plus release guards requiring tags, artifact names, and metadata to
+  agree.
+- Release checksums, workflow artifacts, and build-provenance attestations.
+- Runnable examples for basic inventory, timed deduplication, RF telemetry,
+  live configuration, generic management, Zebra management, Impinj management,
+  Honeywell/Intermec management, FastAPI, WebSocket delivery, and command-line
+  recipes.
+- A task-oriented user guide and architecture-oriented developer guide with
+  source-native diagrams for session lifecycle, callback/worker boundaries,
+  multi-reader flow, runtime architecture, and configuration transitions.
+- Cross-platform Quick Start instructions, reader compatibility guidance,
+  security expectations, troubleshooting, contribution guidance, and release
+  procedures.
 
-### Changed
+### Protocol and wire-format fixes
 
-- The source-tree version is now `3.1.0`, distinguishing this feature-bearing fork from the upstream `3.0.5` baseline.
-- Installation documentation now clearly distinguishes this repository from the upstream PyPI `sllurp` distribution.
-- CI validates Python 3.10 through 3.14 on Linux, full tests on Windows and macOS, package installation, dependency consistency, coverage, static checks, security checks, documentation links, example compilation, and the maintained FastAPI example.
-- Repository/project metadata now points to this fork where fork-specific functionality is documented.
-- Removed unreferenced capability dumps, bundled LLRP standard PDFs, a legacy Impinj R1000 XML dump, obsolete `bin/` wrappers, and the superseded Tornado demo.
-- Simplified the FastAPI example to repository-first installation, environment-based configuration, same-origin browser access, and POST actions for state changes.
-- Renamed process-oriented regression-test files to feature-oriented names without changing their test coverage.
-- Updated `NOTICE.md` to reflect the current GPLv3 file-level license wording.
+- Reject truncated or internally inconsistent LLRP message, TLV, TV, and
+  custom-parameter headers before unpacking or allocating invalid payloads.
+- Bound the default accepted message size while allowing an explicit override.
+- Correct GET_READER_CONFIG field order, regulatory-capability packing, GPI
+  trigger typing, Motorola filter-tag decoding, and malformed C1G2 metadata.
+- Accept standard and known legacy singulation-detail layouts without
+  confusing them with report cadence or inventory lifetime.
+- Preserve repeated custom protocol parameters rather than overwriting earlier
+  values.
+- Preserve complete Impinj GPS sentence payloads and correct the 32-bit
+  frequency-table decoding stride.
+- Correlate KEEPALIVE acknowledgements with the reader's incoming message ID
+  without advancing the client request counter.
+- Reassemble fragmented frames and decode multiple messages received in one
+  socket read.
 
-### Fixed
+### State-machine, concurrency, and lifecycle fixes
 
-- Core LLRP correctness and state-machine defects, malformed C1G2 metadata, mutable defaults, timeout/correlation edge cases, XML hardening, HTTP cleanup, and additional failure-path handling covered by regression tests.
-- Timed-pause tests now wait on the actual asynchronous state transition instead of relying on fixed scheduler timing.
-- Aligned the stale `sllurp/llrp_proto.py` GPLv2 header wording with the project's GPLv3 license while preserving existing copyright notices.
-- Corrected Impinj frequency capability decoding to advance 32-bit frequency entries by the correct stride.
-- Corrected audited LLRP wire encoders/decoders, rollback after rejected configuration operations, mode reset, disconnect cleanup, FastAPI shutdown, diagnostic logging, CLI exit status, detached state snapshots, documentation recipes, and minimum build-backend compatibility. Logging setup preserves application-owned handlers.
-- Preserved the existing unlimited ROReportSpec count (N=0), including explicit AISpec batching and duration triggers. The proposed N=1 default was withdrawn because it changes reporting behavior; see LLRP 1.1 section 14.2.1: https://ref.gs1.org/standards/llrp/1.1.0/.
-- Corrected report-control documentation and logging to identify the legacy
-  `report_every_n_tags` / `report_timeout_ms` behavior as AISpec
-  termination rather than continuous report cadence.
+- Roll back rejected reader and inventory configuration transitions without
+  leaving replacement specifications or mutated desired state behind.
+- Preserve existing inventory/report behavior when configuration changes are
+  rejected, and restore the correct prior state after partial failures.
+- Reset protocol state, pending requests, mode caches, timers, and session
+  generation data on hard disconnect or reconnect.
+- Deliver disconnect notification exactly once even when socket shutdown,
+  close, peer EOF, or repeated cleanup paths overlap.
+- Prevent request timeout and response handling from completing the same
+  operation twice.
+- Make timed pause/resume and timeout behavior event-driven and
+  scheduler-independent.
+- Protect callback iteration when callbacks add or remove callbacks during
+  dispatch.
+- Bound asynchronous FastAPI tag updates and cleanly stop reader threads during
+  application shutdown.
 
-## Release history
+### CLI, logging, data, and validation fixes
 
-- `3.1.0` — first GuLuLuIT fork release, published from immutable tag `v3.1.0` with a wheel, source distribution, SHA-256 manifest, and GitHub build-provenance attestations.
+- Return nonzero status for access connection and operation failures.
+- Keep normal logs off standard output so CSV and pipeline output remain clean.
+- Preserve application-owned logging handlers across logging
+  reinitialization.
+- Emit UTC timestamps consistently, including correct millisecond formatting.
+- Stream CSV rows rather than accumulating an unbounded in-memory list.
+- Serialize multi-reader CSV writes, normalize byte EPC filters, format IPv6
+  reader addresses correctly, and fall back safely when reader timestamps are
+  unavailable.
+- Track inventory counts independently per reader and reuse a tag-write payload
+  safely across multiple readers.
+- Validate deduplication windows/capacities, management timeouts, pause
+  durations, reconnect settings, tag selectors, SGTIN-96 input, lock fields,
+  power indices, channels, and telemetry combinations.
+- Use hardened XML parsing for untrusted reader responses and prevent
+  credentials from crossing configured management origins.
+
+### Compatibility and deprecation status
+
+- No supported public API emits a deprecation warning in 3.1.2, and no public
+  API is scheduled for removal by this release.
+- `report_every_n_tags`, `report_timeout_ms`, and their command-line forms
+  are retained for compatibility. Despite their historical names, they stop an
+  antenna inventory and cause accumulated observations to be returned at that
+  boundary. New code that wants continuous N-tag delivery should use
+  `ro_report_every_n_tags`.
+- The misspelled legacy frequency key `Channelist` is accepted and normalized
+  to `ChannelList`; new configurations should use `ChannelList`.
+- `SecureLLRPReaderClient` remains a supported descriptive alias of
+  `LLRPTLSReaderClient`; neither name is deprecated.
+- Internal low-level decoder compatibility helpers marked as legacy are not
+  part of the supported public API and may be refactored in a future release.
+- Private Impinj Speedway web-interface endpoints are intentionally unsupported;
+  use standard LLRP for RFID control and vendor-documented RShell/SSH for device
+  administration.
+- Obsolete repository wrappers and the superseded Tornado demonstration are
+  not shipped. The maintained web example uses FastAPI and WebSockets.
