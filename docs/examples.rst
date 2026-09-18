@@ -8,20 +8,32 @@ intended to be small enough to copy into an application and adapt.
 Example map
 -----------
 
-==================================  =====================================================
-Goal                                Example
-==================================  =====================================================
-First Python inventory              `basic_inventory.py <../examples/basic_inventory.py>`_
-Timed tag deduplication             `dedup_inventory.py <../examples/dedup_inventory.py>`_
-RF telemetry / antenna observations `rf_telemetry.py <../examples/rf_telemetry.py>`_
-Live runtime configuration          `runtime_config.py <../examples/runtime_config.py>`_
-Generic HTTP/HTTPS management       `reader_management_generic.py <../examples/reader_management_generic.py>`_
-Zebra RM / IoT management           `zebra_management.py <../examples/zebra_management.py>`_
-Impinj R700/R720 management         `impinj_management.py <../examples/impinj_management.py>`_
-Honeywell/Intermec DCWS             `intermec_management.py <../examples/intermec_management.py>`_
-TLS, access, logging, multi-reader  `CLI recipes <../examples/cli-recipes.md>`_
-FastAPI / WebSocket integration     `FastAPI demo <../examples/fastapi/README.md>`_
-==================================  =====================================================
+.. list-table::
+   :header-rows: 1
+   :widths: 36 64
+
+   * - Goal
+     - Example
+   * - First Python inventory
+     - `basic_inventory.py <../examples/basic_inventory.py>`_
+   * - Timed tag deduplication
+     - `dedup_inventory.py <../examples/dedup_inventory.py>`_
+   * - RF telemetry / antenna observations
+     - `rf_telemetry.py <../examples/rf_telemetry.py>`_
+   * - Live runtime configuration
+     - `runtime_config.py <../examples/runtime_config.py>`_
+   * - Generic HTTP/HTTPS management
+     - `reader_management_generic.py <../examples/reader_management_generic.py>`_
+   * - Zebra RM / IoT management
+     - `zebra_management.py <../examples/zebra_management.py>`_
+   * - Impinj R700/R720 management
+     - `impinj_management.py <../examples/impinj_management.py>`_
+   * - Honeywell/Intermec DCWS
+     - `intermec_management.py <../examples/intermec_management.py>`_
+   * - TLS, access, logging, multi-reader
+     - `CLI recipes <../examples/cli-recipes.md>`_
+   * - FastAPI / WebSocket integration
+     - `FastAPI demo <../examples/fastapi/README.md>`_
 
 Choosing the right example
 --------------------------

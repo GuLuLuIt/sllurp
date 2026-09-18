@@ -1,33 +1,42 @@
-# Sllurp v3.1.1
+# Sllurp v3.1.2
 
-This GuLuLuIT maintenance release retains the production-focused Sllurp feature set and the import-compatible `sllurp` module name. It consolidates package and documentation provenance on the maintained GuLuLuIT repository and includes deterministic cross-platform timeout-test synchronization.
+This documentation-focused maintenance release makes the production feature
+set easier to operate, extend, test, and release. It retains the
+import-compatible `sllurp` module name and the established runtime behavior
+while adding complete user and developer paths.
 
 ## Highlights
 
-- Standard LLRP inventory, access operations, reconnect handling, logging, and multi-reader support.
-- Explicit continuous `ROReportSpec` cadence separated from AISpec termination.
-- Secure LLRP/TLS with certificate verification, private CAs, mutual TLS, SNI, and conventional port 5085 support.
-- Timed tag deduplication with automatic, hardware, and bounded-memory backends.
-- Generic HTTP/HTTPS reader management plus Zebra Reader Manager, Zebra IoT Connector, Impinj R700/R720, and Honeywell/Intermec IF-family adapters.
-- Transactional runtime reconfiguration and desired/generated/applied/reader-reported state inspection.
-- Standard and Zebra RF telemetry, including per-antenna RSSI, channel, timestamps, and supported phase data.
-- Python 3.10 through 3.14 support across Linux, Windows, and macOS CI.
-- Expanded protocol, state-machine, malformed-input, concurrency, hardware-regression, documentation, and package tests.
+- A new user guide explains the protocol boundary, secure deployment, CLI and
+  Python workflows, callback threading, reporting versus LLRP Antenna
+  Inventory Specification (AISpec) termination, deduplication, live
+  configuration, multi-reader design, and recovery.
+- A new developer guide maps the repository, state machine, exact request
+  correlation, configuration transitions, public API boundary, extension
+  workflows, tests, documentation contract, and release process.
+- Mermaid diagrams document the session lifecycle, worker boundary, internal
+  architecture, and configuration transition flow directly in source.
+- The README, Quick Start, examples, documentation index, contribution guide,
+  source distribution manifest, and release checks link and ship the new
+  guides.
+- All existing production capabilities remain available, including Secure
+  LLRP, timed deduplication, vendor management, runtime reconfiguration, RF
+  telemetry, and multi-reader support.
 
 ## Download and verify
 
-Download `sllurp-3.1.1-py3-none-any.whl`, `sllurp-3.1.1.tar.gz`, and `SHA256SUMS.txt` from this release. Verify the selected file before installation:
+Download `sllurp-3.1.2-py3-none-any.whl`, `sllurp-3.1.2.tar.gz`, and `SHA256SUMS.txt` from this release. Verify the selected file before installation:
 
 ```bash
 sha256sum -c SHA256SUMS.txt
-python -m pip install ./sllurp-3.1.1-py3-none-any.whl
+python -m pip install ./sllurp-3.1.2-py3-none-any.whl
 sllurp --version
 ```
 
 GitHub also publishes build-provenance attestations for both Python distributions. With GitHub CLI installed, verify an artifact against this repository:
 
 ```bash
-gh attestation verify sllurp-3.1.1-py3-none-any.whl --repo GuLuLuIt/sllurp
+gh attestation verify sllurp-3.1.2-py3-none-any.whl --repo GuLuLuIt/sllurp
 ```
 
 ## Important package-name note

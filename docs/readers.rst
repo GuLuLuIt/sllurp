@@ -25,29 +25,29 @@ one reader model.  Readers in this document fall into two groups:
 
 The machine-readable version of this table is in :mod:`sllurp.readers`.
 
-===============================  ===============================  ==============
-Reader family                    LLRP                            Secure LLRP
-===============================  ===============================  ==============
-Zebra/Motorola FX7400            Yes + Motorola extensions       Yes
-Zebra FX7500                     Yes + Zebra extensions          Yes
-Zebra/Motorola FX9500            Yes + Motorola/Zebra extensions Yes
-Zebra FX9600                     Yes + Zebra extensions          Yes
-Zebra ATR7000                    Yes + Zebra extensions          Yes
-Zebra FXR90 family               Yes                             Firmware/config dependent
-Zebra/Motorola MC3090Z/MC319Z    Yes + Motorola extensions       Not verified
-Zebra/Motorola MC9090/MC9190-Z   Yes + Motorola extensions       Not verified
-Impinj Speedway R220/R420        Yes + Impinj extensions         Yes
-Impinj R700/R720                 Yes + Impinj extensions         Yes
-Impinj xPortal                   Yes + Impinj extensions         Firmware dependent
-Impinj xArray                    Yes + Impinj extensions         Yes
-Impinj xSpan                     Yes + Impinj extensions         Yes
-Impinj Speedway R1000            Yes (legacy)                    Not verified
-Honeywell/Intermec IF2           LLRP 1.0.1                      Yes
-Honeywell/Intermec IF61          LLRP 1.0.1                      Yes
-ThingMagic IZAR/Sargas           Standard LLRP                   Not verified
-ThingMagic Mercury6/M6/Astra-EX  Standard LLRP                   Not verified
-Alien ALR-9900+ family           LLRP 1.1                        Not verified
-===============================  ===============================  ==============
+.. csv-table::
+   :header: "Reader family", "LLRP", "Secure LLRP"
+   :widths: 35, 38, 27
+
+   "Zebra/Motorola FX7400", "Yes + Motorola extensions", "Yes"
+   "Zebra FX7500", "Yes + Zebra extensions", "Yes"
+   "Zebra/Motorola FX9500", "Yes + Motorola/Zebra extensions", "Yes"
+   "Zebra FX9600", "Yes + Zebra extensions", "Yes"
+   "Zebra ATR7000", "Yes + Zebra extensions", "Yes"
+   "Zebra FXR90 family", "Yes", "Firmware/config dependent"
+   "Zebra/Motorola MC3090Z/MC319Z", "Yes + Motorola extensions", "Not verified"
+   "Zebra/Motorola MC9090/MC9190-Z", "Yes + Motorola extensions", "Not verified"
+   "Impinj Speedway R220/R420", "Yes + Impinj extensions", "Yes"
+   "Impinj R700/R720", "Yes + Impinj extensions", "Yes"
+   "Impinj xPortal", "Yes + Impinj extensions", "Firmware dependent"
+   "Impinj xArray", "Yes + Impinj extensions", "Yes"
+   "Impinj xSpan", "Yes + Impinj extensions", "Yes"
+   "Impinj Speedway R1000", "Yes (legacy)", "Not verified"
+   "Honeywell/Intermec IF2", "LLRP 1.0.1", "Yes"
+   "Honeywell/Intermec IF61", "LLRP 1.0.1", "Yes"
+   "ThingMagic IZAR/Sargas", "Standard LLRP", "Not verified"
+   "ThingMagic Mercury6/M6/Astra-EX", "Standard LLRP", "Not verified"
+   "Alien ALR-9900+ family", "LLRP 1.1", "Not verified"
 
 Secure LLRP
 -----------

@@ -30,13 +30,13 @@ configuration, RF telemetry, and troubleshooting.
 
 Install the current immutable release from GitHub::
 
-    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.1"
+    python -m pip install "git+https://github.com/GuLuLuIt/sllurp.git@v3.1.2"
 
-Or download ``sllurp-3.1.1-py3-none-any.whl`` from the
-`v3.1.1 GitHub Release <https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.1>`_
+Or download ``sllurp-3.1.2-py3-none-any.whl`` from the
+`v3.1.2 GitHub Release <https://github.com/GuLuLuIt/sllurp/releases/tag/v3.1.2>`_
 and install the file directly::
 
-    python -m pip install ./sllurp-3.1.1-py3-none-any.whl
+    python -m pip install ./sllurp-3.1.2-py3-none-any.whl
 
 Verify the installed command::
 
@@ -234,6 +234,10 @@ Documentation
 -------------
 
 * `Quick Start <QUICKSTART.md>`_ — installation and first use
+* `User guide <USER_GUIDE.md>`_ — operational choices, Python lifecycle,
+  production deployment, and troubleshooting
+* `Developer guide <DEVELOPER_GUIDE.md>`_ — architecture, public APIs,
+  extension workflows, testing, and release maintenance
 * `Documentation index <docs/index.rst>`_ — feature and CLI map
 * `Example guide <docs/examples.rst>`_ — runnable examples by feature
 * `Reader compatibility <docs/readers.rst>`_
@@ -293,9 +297,10 @@ Clone and install in editable mode with the complete developer toolset::
 
 Python 3.10 through 3.14 are supported by the current project metadata and CI.
 The Linux matrix covers every supported Python version; Windows and macOS run
-the full suite on the current CI Python. See `CONTRIBUTING.md <CONTRIBUTING.md>`_
-for the full local quality gate and hardware/interoperability contribution
-guidance.
+the full suite on the current CI Python. See the
+`Developer guide <DEVELOPER_GUIDE.md>`_ for architecture and extension
+workflows, and `CONTRIBUTING.md <CONTRIBUTING.md>`_ for the local quality gate
+and pull-request guidance.
 
 Project maintenance
 -------------------

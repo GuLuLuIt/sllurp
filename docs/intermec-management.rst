@@ -1,5 +1,5 @@
 Honeywell / Intermec IF-series management
-========================================
+==========================================
 
 Start here
 ----------
@@ -34,8 +34,8 @@ Basic usage
     manager = create_reader_manager(
         "IF2",
         "https://reader.example",
-        username="admin",
-        password="secret",
+        username="READER_USERNAME",
+        password="READ_FROM_SECRET_STORE",
     )
 
     print(manager.list_operations())
@@ -75,8 +75,8 @@ supplied explicitly::
         "IF61",
         "https://reader.example",
         api="dcws",
-        username="admin",
-        password="secret",
+        username="READER_USERNAME",
+        password="READ_FROM_SECRET_STORE",
         wsdl_path="/custom/DeviceConfiguration.wsdl",
         endpoint_path="/custom/DeviceConfiguration",
     )

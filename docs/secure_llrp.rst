@@ -92,28 +92,28 @@ sllurp encoder/decoder and state machine run after the TLS session is
 established.  See :mod:`sllurp.readers` and ``docs/readers.rst`` for the
 machine-readable and human-readable compatibility lists.
 
-===============================  ===========================  =======================
-Reader family                    Secure LLRP status           Port
-===============================  ===========================  =======================
-Zebra/Motorola FX7400            **Yes**                      Configurable; 5085 standard
-Zebra FX7500                     **Yes**                      5085 default secure port
-Zebra/Motorola FX9500            **Yes**                      Configurable; 5085 standard
-Zebra FX9600                     **Yes**                      5085 default secure port
-Zebra ATR7000                    **Yes**                      5085 secure LLRP
-Zebra FXR90 family               Firmware/config dependent   Use configured endpoint
-Zebra MC3090Z/MC319Z             Not verified                Use configured endpoint
-Zebra MC9090/MC9190-Z            Not verified                Use configured endpoint
-Impinj Speedway R220/R420        **Yes**                      5085 secure LLRP
-Impinj R700/R720                 **Yes**                      5085 LLRPS
-Impinj xArray                    **Yes**                      5085 standard secure port
-Impinj xSpan                     **Yes**                      5085 standard secure port
-Impinj xPortal                   Firmware dependent          Use configured endpoint
-Honeywell/Intermec IF2           **Yes**                      5085 secure server
-Honeywell/Intermec IF61          **Yes**                      5085 LLRP/TLS
-ThingMagic IZAR/Sargas           Not verified                Use configured endpoint
-ThingMagic Mercury6/M6/Astra-EX  Not verified                Use configured endpoint
-Alien ALR-9900+                  Not verified                Use configured endpoint
-===============================  ===========================  =======================
+.. csv-table::
+   :header: "Reader family", "Secure LLRP status", "Port"
+   :widths: 36, 29, 35
+
+   "Zebra/Motorola FX7400", "**Yes**", "Configurable; 5085 standard"
+   "Zebra FX7500", "**Yes**", "5085 default secure port"
+   "Zebra/Motorola FX9500", "**Yes**", "Configurable; 5085 standard"
+   "Zebra FX9600", "**Yes**", "5085 default secure port"
+   "Zebra ATR7000", "**Yes**", "5085 secure LLRP"
+   "Zebra FXR90 family", "Firmware/config dependent", "Use configured endpoint"
+   "Zebra MC3090Z/MC319Z", "Not verified", "Use configured endpoint"
+   "Zebra MC9090/MC9190-Z", "Not verified", "Use configured endpoint"
+   "Impinj Speedway R220/R420", "**Yes**", "5085 secure LLRP"
+   "Impinj R700/R720", "**Yes**", "5085 LLRPS"
+   "Impinj xArray", "**Yes**", "5085 standard secure port"
+   "Impinj xSpan", "**Yes**", "5085 standard secure port"
+   "Impinj xPortal", "Firmware dependent", "Use configured endpoint"
+   "Honeywell/Intermec IF2", "**Yes**", "5085 secure server"
+   "Honeywell/Intermec IF61", "**Yes**", "5085 LLRP/TLS"
+   "ThingMagic IZAR/Sargas", "Not verified", "Use configured endpoint"
+   "ThingMagic Mercury6/M6/Astra-EX", "Not verified", "Use configured endpoint"
+   "Alien ALR-9900+", "Not verified", "Use configured endpoint"
 
 Zebra FX7400, FX7500, FX9500, FX9600 and ATR7000
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
