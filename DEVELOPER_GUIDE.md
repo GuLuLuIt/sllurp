@@ -347,6 +347,8 @@ application-facing change, update the appropriate layers:
 - `docs/*.rst`: focused feature details and hardware boundaries;
 - `examples/`: copyable, runnable code;
 - `DEVELOPER_GUIDE.md`: architecture, extension, and maintenance behavior;
+- `API_REFERENCE.md`: supported application interfaces, signatures, and
+  copyable Python examples;
 - `CHANGELOG.md`: release-visible change;
 - `RELEASE_NOTES.md`: the current release's operator-facing summary.
 
@@ -404,6 +406,7 @@ ownership and an intentional distribution decision.
 ## Further references
 
 - [User guide](USER_GUIDE.md)
+- [API reference](API_REFERENCE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Documentation index](docs/index.rst)
 - [Runtime configuration](docs/runtime-state.rst)

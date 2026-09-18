@@ -91,6 +91,9 @@ It is not merely a documentation update over an earlier public package.
   for operations, lifecycle, reporting, deployment, and diagnostics.
 - [Developer guide](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/DEVELOPER_GUIDE.md)
   for architecture, APIs, protocol extensions, testing, and maintenance.
+- [API reference](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/API_REFERENCE.md)
+  for supported Python interfaces, configuration fields, callbacks, return
+  values, exceptions, and copyable examples.
 - [Examples](https://github.com/GuLuLuIt/sllurp/tree/v3.1.2/examples)
   for runnable inventory, telemetry, management, and service integrations.
 - [Support guide](https://github.com/GuLuLuIt/sllurp/blob/v3.1.2/SUPPORT.md)

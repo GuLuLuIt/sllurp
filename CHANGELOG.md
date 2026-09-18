@@ -6,6 +6,71 @@ shipped in the package rather than relying on incomplete pre-release notices.
 
 ## 3.1.2 — 2026-09-17
 
+### Start here: what 3.1.2 lets you do
+
+The technical lists below are the permanent release record. If you are trying
+to decide whether a feature solves your problem, start with these examples.
+Replace `192.0.2.10` and the certificate path with values for your reader.
+
+| Goal | What it means in practice | Try it |
+|---|---|---|
+| Read tags from one reader | Connect, configure inventory, and print observations. | `sllurp inventory -a 0 -t 10 192.0.2.10` |
+| Read several readers | Keep independent sessions and counts in one process. | `sllurp inventory -a 0 192.0.2.10 192.0.2.11` |
+| Encrypt the reader connection | Verify the reader certificate and use Secure LLRP. | `sllurp inventory --tls --tls-ca-file reader-ca.pem reader.example` |
+| Receive reports without stopping inventory | Ask for a report every N observations while the antenna inventory continues. | `sllurp inventory --ro-report-every-n-tags 25 192.0.2.10` |
+| Suppress repeated reads briefly | Emit one observation per deduplication identity during a time window. | `sllurp inventory --dedup-seconds 2 --dedup-backend auto -a 0 192.0.2.10` |
+| Capture RF evidence | Request antenna, RSSI, channel, timestamps, counts, and supported vendor observations. | `python examples/rf_telemetry.py 192.0.2.10 --mode standard --antenna 1` |
+| Change a running session | Apply a validated configuration transition with success/failure state and rollback. | `python examples/runtime_config.py 192.0.2.10` |
+| Read device settings | Use only the management API documented for the reader model. | `python examples/reader_management_generic.py https://reader.example /documented/api/settings --username READER_USERNAME` |
+
+Minimal Python inventory:
+
+```python
+from sllurp.llrp import LLRPReaderClient, LLRPReaderConfig
+
+
+def on_tags(_reader, reports):
+    for tag in reports:
+        print(tag.get("EPC") or tag.get("EPCData"), tag.get("AntennaID"))
+
+
+reader = LLRPReaderClient(
+    "192.0.2.10",
+    config=LLRPReaderConfig(
+        {"antennas": [0], "ro_report_every_n_tags": 1}
+    ),
+)
+reader.add_tag_report_callback(on_tags)
+reader.connect()
+
+try:
+    reader.join()
+except KeyboardInterrupt:
+    pass
+finally:
+    reader.disconnect(timeout=2)
+```
+
+Expected result: each callback receives a list of decoded tag observations.
+The exact fields depend on the configured selectors and reader support.
+
+Why the less visible fixes matter:
+
+| Fix area | Problem it prevents |
+|---|---|
+| Bounded and strict decoding | A malformed or oversized reader frame consuming excessive memory or desynchronizing the connection. |
+| Exact request correlation | A late response incorrectly completing a newer request of the same type. |
+| Transactional configuration | A rejected live change leaving application state different from reader state. |
+| Deterministic disconnect cleanup | Duplicate notifications, abandoned timers, or stale requests during reconnect and shutdown. |
+| Serialized streaming output | Corrupted multi-reader CSV and unbounded memory use in long sessions. |
+| Same-origin management security | Reader credentials being forwarded to a different host after a redirect. |
+
+For every supported Python interface, its inputs, callbacks, return values,
+exceptions, and additional examples, use the
+[Sllurp 3.1.2 API reference](API_REFERENCE.md). The
+[examples index](examples/README.md) contains complete runnable programs, and
+the [user guide](USER_GUIDE.md) explains production decisions and recovery.
+
 ### Core LLRP and application features
 
 - Standard LLRP message and parameter encoding/decoding for reader inventory,
