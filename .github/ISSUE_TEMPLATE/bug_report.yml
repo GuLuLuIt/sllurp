@@ -1,66 +1,63 @@
 name: Bug report
 description: Report a reproducible Sllurp defect
 title: "[Bug]: "
-labels: []
+labels:
+  - bug
 body:
   - type: markdown
     attributes:
       value: |
-        Do not include passwords, tokens, private keys, production secrets, or sensitive tag/customer data. Security vulnerabilities belong in the private process described in SECURITY.md.
+        Thanks for reporting a problem. Remove credentials, private keys,
+        production addresses, and customer or tag data before submitting.
   - type: input
     id: version
     attributes:
-      label: Sllurp version or commit
-      placeholder: "3.0.5 or commit SHA"
+      label: Sllurp version
+      description: Run `sllurp --version` and paste the result.
+      placeholder: sllurp, version 3.1.2
     validations:
       required: true
   - type: input
-    id: python
+    id: environment
     attributes:
-      label: Python and operating system
-      placeholder: "Python 3.12 / Ubuntu 24.04"
+      label: Python, operating system, and installation method
+      placeholder: Python 3.13, Windows 11, v3.1.2 wheel
     validations:
       required: true
   - type: input
     id: reader
     attributes:
       label: Reader model and firmware
-      placeholder: "Zebra FX9600 / firmware ..."
-    validations:
-      required: false
-  - type: dropdown
-    id: transport
+      description: Include this when the problem involves reader behavior.
+      placeholder: Vendor model, firmware version, LLRP or TLS port
+  - type: textarea
+    id: problem
     attributes:
-      label: Connection or feature area
-      options:
-        - Plain LLRP
-        - Secure LLRP / TLS
-        - Tag access
-        - Deduplication
-        - RF telemetry
-        - Runtime configuration
-        - Reader HTTP/HTTPS/SOAP management
-        - Packaging / installation
-        - Other
+      label: Problem
+      description: What happened, and what did you expect instead?
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
       label: Minimal reproduction
-      description: Exact command or smallest Python example that reproduces the problem.
+      description: Provide the smallest safe command, configuration, or code sample.
     validations:
       required: true
   - type: textarea
-    id: expected
+    id: logs
     attributes:
-      label: Expected behavior
-    validations:
-      required: true
-  - type: textarea
-    id: actual
+      label: Sanitized diagnostics
+      description: Attach relevant DEBUG output after removing sensitive data.
+      render: text
+  - type: checkboxes
+    id: checks
     attributes:
-      label: Actual behavior and sanitized logs
-      description: Remove credentials, tokens, private keys, production addresses, and sensitive tag/customer data.
-    validations:
-      required: true
+      label: Checklist
+      options:
+        - label: I tested the maintained 3.1.2 release or current main branch.
+          required: true
+        - label: I removed credentials, private keys, addresses, and customer or tag data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
