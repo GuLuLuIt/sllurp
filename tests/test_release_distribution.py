@@ -3,7 +3,6 @@ from pathlib import Path
 
 from sllurp.version import __version__
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -90,6 +89,54 @@ def test_user_and_developer_documentation_are_discoverable():
         "## Documentation contract",
     ):
         assert heading in developer_guide
+
+
+def test_release_notes_are_a_cumulative_supported_baseline():
+    release_notes = read("RELEASE_NOTES.md")
+    changelog = read("CHANGELOG.md")
+
+    for expected in (
+        "first complete, supported GuLuLuIT package baseline",
+        "## What is included",
+        "## Material bug fixes included",
+        "## Compatibility and deprecated behavior",
+        "### LLRP inventory and tag operations",
+        "### Secure transport",
+        "### Reporting, deduplication, and RF observations",
+        "### Live configuration and reliability",
+        "### Reader management",
+        "### Protocol and decoder correctness",
+        "### Runtime and state correctness",
+        "### CLI, logging, data, and security correctness",
+    ):
+        assert expected in release_notes
+
+    for expected in (
+        "### Core LLRP and application features",
+        "### Secure transport and reader compatibility",
+        "### Reporting, deduplication, and telemetry",
+        "### Runtime configuration and request handling",
+        "### Reader management",
+        "### Protocol and wire-format fixes",
+        "### State-machine, concurrency, and lifecycle fixes",
+        "### CLI, logging, data, and validation fixes",
+        "### Compatibility and deprecation status",
+    ):
+        assert expected in changelog
+
+
+def test_release_notes_document_retained_compatibility_interfaces():
+    release_notes = read("RELEASE_NOTES.md")
+    for expected in (
+        "report_every_n_tags",
+        "report_timeout_ms",
+        "ro_report_every_n_tags",
+        "Channelist",
+        "ChannelList",
+        "SecureLLRPReaderClient",
+        "LLRPTLSReaderClient",
+    ):
+        assert expected in release_notes
 
 
 def test_pypi_ownership_boundary_remains_explicit():
