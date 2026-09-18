@@ -1,0 +1,66 @@
+name: Hardware compatibility report
+description: Report reader-model or firmware interoperability
+title: "[Hardware]: "
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hardware behavior is often model- and firmware-specific. Do not include
+        reader credentials, private addresses, customer data, or tag data.
+  - type: input
+    id: reader
+    attributes:
+      label: Reader manufacturer and exact model
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Sllurp and Python versions
+      placeholder: Sllurp 3.1.2, Python 3.13
+    validations:
+      required: true
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      options:
+        - LLRP on TCP 5084
+        - Secure LLRP/TLS on TCP 5085
+        - Reader-management API
+        - Other documented interface
+    validations:
+      required: true
+  - type: textarea
+    id: topology
+    attributes:
+      label: Antenna and deployment details
+      description: Include antenna ports, region, and relevant inventory settings.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed and expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Provide safe logs, protocol observations, or vendor documentation links.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I tested with Sllurp 3.1.2 or current main.
+          required: true
+        - label: I removed all sensitive deployment and tag data.
+          required: true
