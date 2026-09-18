@@ -1,6 +1,9 @@
 # Support
 
-For installation and first use, start with `QUICKSTART.md`. For runnable feature examples, see `examples/README.md`. The documentation map is in `docs/index.rst`.
+Sllurp 3.1.2 is the current supported release. For installation and first use,
+start with [`QUICKSTART.md`](QUICKSTART.md). For runnable feature examples, see
+[`examples/README.md`](examples/README.md). The documentation map is in
+[`docs/index.rst`](docs/index.rst).
 
 ## Usage questions
 
@@ -26,9 +29,12 @@ sllurp reset --help
 
 ## Bugs and feature requests
 
-When the repository's GitHub Issues feature is enabled, use the provided bug or feature-request templates. If the Issues tab is unavailable, a focused pull request with a regression test is still welcome for a confirmed defect.
+Use the [structured issue forms](https://github.com/GuLuLuIt/sllurp/issues/new/choose)
+for bugs, hardware compatibility reports, and feature requests. A focused pull
+request with a regression test is also welcome for a confirmed defect.
 
-For security vulnerabilities, do not use a normal public issue. Follow `SECURITY.md`.
+For security vulnerabilities, do not use a normal public issue. Follow
+[`SECURITY.md`](SECURITY.md).
 
 ## Hardware-specific reports
 

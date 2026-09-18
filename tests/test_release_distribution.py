@@ -91,6 +91,31 @@ def test_user_and_developer_documentation_are_discoverable():
         assert heading in developer_guide
 
 
+def test_repository_support_surfaces_are_complete():
+    readme = read("README.rst")
+    support = read("SUPPORT.md")
+    security = read("SECURITY.md")
+    project = read("pyproject.toml")
+
+    for path in (
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/hardware_compatibility.yml",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+    ):
+        assert (ROOT / path).is_file()
+
+    assert "issues/new/choose" in readme
+    assert "issues/new/choose" in support
+    assert "releases/tag/v3.1.2" in security
+    assert 'Issues = "https://github.com/GuLuLuIt/sllurp/issues/new/choose"' in project
+    assert 'Releases = "https://github.com/GuLuLuIt/sllurp/releases"' in project
+
+    for placeholder in ("READER_USERNAME", "READER_PASSWORD"):
+        assert placeholder in readme
+
+
 def test_release_notes_are_a_cumulative_supported_baseline():
     release_notes = read("RELEASE_NOTES.md")
     changelog = read("CHANGELOG.md")

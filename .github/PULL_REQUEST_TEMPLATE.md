@@ -1,18 +1,23 @@
 ## Summary
 
-Describe the problem and the smallest meaningful change.
+Describe the behavior, documentation, or interoperability change.
 
 ## Validation
 
-- [ ] Tests pass locally
-- [ ] Regression coverage added or updated when behavior changed
-- [ ] Examples and documentation updated when public behavior changed
-- [ ] Sensitive deployment data has been removed from logs and fixtures
+- [ ] Added or updated tests for behavior changes.
+- [ ] Ran `pytest -W error`.
+- [ ] Ran the relevant static, security, documentation-link, and package checks.
+- [ ] Updated user, developer, feature, example, or release documentation where needed.
+- [ ] Confirmed package and documentation version references remain 3.1.2.
 
-## Reader / interoperability details
+## Hardware evidence
 
-For hardware-specific changes, include reader model, firmware, protocol and port, antenna topology when relevant, and what was validated on real hardware. If hardware was not available, say so.
+For reader-specific changes, list the manufacturer, exact model, firmware,
+interface/port, antenna topology, and sanitized observed behavior. Write “Not
+hardware-specific” when this section does not apply.
 
-## Compatibility / risk
+## Safety and compatibility
 
-Describe backward-compatibility, transport security, state-machine, reader-management, or deployment risks and how they are mitigated.
+- [ ] No credentials, private keys, production addresses, customer data, or tag data are included.
+- [ ] Public compatibility behavior and deprecation impact are documented.
+- [ ] New vendor behavior uses a documented interface or clearly reproducible evidence.
