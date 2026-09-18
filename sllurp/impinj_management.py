@@ -147,12 +147,15 @@ class ImpinjRESTManager:
         return response.text
 
     def get(self, resource: str) -> Any:
+        """GET ``resource`` and return decoded JSON, text, or ``None``."""
         return self.request("GET", resource)
 
     def put(self, resource: str, settings: Mapping[str, Any]) -> Any:
+        """PUT a settings mapping and return the decoded response."""
         return self.request("PUT", resource, json_body=dict(settings))
 
     def patch(self, resource: str, settings: Mapping[str, Any]) -> Any:
+        """PATCH a settings mapping and return the decoded response."""
         return self.request("PATCH", resource, json_body=dict(settings))
 
     def post(
@@ -160,6 +163,7 @@ class ImpinjRESTManager:
         resource: str,
         body: Mapping[str, Any] | None = None,
     ) -> Any:
+        """POST an optional mapping and return the decoded response."""
         return self.request(
             "POST",
             resource,
@@ -167,6 +171,7 @@ class ImpinjRESTManager:
         )
 
     def delete(self, resource: str) -> Any:
+        """DELETE ``resource`` and return the decoded response."""
         return self.request("DELETE", resource)
 
     def get_settings(self, resource: str) -> Any:
@@ -199,6 +204,7 @@ class ImpinjRESTManager:
         return self.put("mqtt", settings)
 
     def get_power(self) -> Any:
+        """Return the reader power-source configuration."""
         return self.get("system/power")
 
     def set_power_source(self, power_source: str) -> Any:
@@ -267,3 +273,4 @@ class ImpinjRESTManager:
         """Download the documented reader diagnostic debug bundle."""
         response = self.response("GET", "system/diagnostics/debug-bundle/")
         return response.body
+

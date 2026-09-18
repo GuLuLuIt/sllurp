@@ -117,6 +117,7 @@ sllurp --debug --logfile sllurp.log inventory READER_HOST
 ## Installed-version help
 
 ```bash
+sllurp --version
 sllurp --help
 sllurp inventory --help
 sllurp access --help

@@ -21,3 +21,4 @@ def calculate_check_digit(gtin):
 def combine_gtin_with_check_digit(gtin):
     """Given a gtin, calculate and append its check digit"""
     return gtin + str(calculate_check_digit(gtin))
+

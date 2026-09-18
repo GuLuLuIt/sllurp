@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+"""LLRP message/parameter registry and binary encoders.
+
+Wire definitions follow GS1 LLRP 1.1 sections 7 and 17:
+https://ref.gs1.org/standards/llrp/1.1.0/
+
+Only names listed in :data:`__all__` form the supported low-level API. The
+individual registry encoder/decoder functions are implementation details.
+"""
+
 # llrp_proto.py - LLRP protocol client support
 #
 # Copyright (C) 2009 Rodolfo Giometti <giometti@linux.it>
@@ -362,6 +371,16 @@ for p_type, p_format in TVE_PARAM_FORMATS.items():
 
 
 def get_message_name_from_type(msgtype, vendorid=0, subtype=0):
+    """Return the registered symbolic name for a numeric message identity.
+
+    Args:
+        msgtype: Ten-bit standard message type.
+        vendorid: Vendor identifier for custom type 1023, otherwise zero.
+        subtype: Vendor subtype for custom type 1023, otherwise zero.
+
+    Raises:
+        KeyError: If no standard or custom message matches the exact tuple.
+    """
     name = Message_Type2Name[(msgtype, vendorid, subtype)]
     return name
 
@@ -4672,6 +4691,12 @@ Param_struct["MotoCustomCommandOptions"] = {
 
 
 def llrp_data2xml(msg):
+    """Render a decoded LLRP mapping as diagnostic XML-like text.
+
+    Returns an empty string for falsey input. Values are represented with
+    ``repr`` and are not XML-escaped, so the output is intended for logs and
+    diagnostics rather than interchange with an XML parser.
+    """
     if not msg:
         return ""
 
@@ -4740,6 +4765,23 @@ def llrp_data2xml(msg):
 
 
 class LLRPROSpec(dict):
+    """Build the nested mapping for one inventory ROSpec.
+
+    Time units are explicit: ``duration_sec`` is seconds while
+    ``report_timeout_ms`` is milliseconds. ``ro_report_every_n_tags`` controls
+    ROReportSpec cadence; legacy ``report_every_n_tags`` controls AISpec
+    termination. RF mode, antenna, power, filter, report-selector, frequency,
+    and vendor-extension values are embedded in protocol order.
+
+    Raises:
+        LLRPError: If the ID, priority, state, report cadence, transmit-power
+            mapping, frequency list, or another field invariant is invalid.
+
+    Protocol:
+        GS1 LLRP 1.1 sections 11, 14.2.1, 16.2.1, and 17.2.4:
+        https://ref.gs1.org/standards/llrp/1.1.0/
+    """
+
     def __init__(
         self,
         reader_mode,
@@ -5024,6 +5066,8 @@ class LLRPROSpec(dict):
 
 
 class LLRPMessageDict(dict):
+    """Message mapping whose representation uses :func:`llrp_data2xml`."""
+
     def __repr__(self):
         return llrp_data2xml(self)
 
@@ -5075,7 +5119,9 @@ for source_struct, dest_dict, obj_name in [
         fields.extend([x for x in o_fields if x not in fields])
         fields.extend([x for x in n_fields if x not in fields])
 
-        # Field order might be important for some readers
+        # Parameter order is the registry's wire order (LLRP 1.1 section 17.2),
+        # not merely display order. Some readers reject otherwise valid TLVs
+        # when optional/vendor parameters move, so retain declared order.
         o_n_ordered_fields = []
         for entry in fields:
             if entry in o_fields:
@@ -5086,3 +5132,4 @@ for source_struct, dest_dict, obj_name in [
 
         # Fill reverse dict
         dest_dict[(msgtype, vendorid, subtype)] = msgname
+

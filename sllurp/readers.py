@@ -23,7 +23,21 @@ SECURE_LLRP_PORT = 5085
 
 @dataclass(frozen=True)
 class ReaderProfile:
-    """Protocol capabilities for one reader family."""
+    """Protocol capabilities for one reader family.
+
+    Attributes:
+        key: Stable normalized profile identifier.
+        vendor: Human-readable manufacturer.
+        family: Reader product family.
+        models: Canonical model names.
+        aliases: Additional accepted lookup names.
+        llrp_version: Documented LLRP version, or ``None`` when unspecified.
+        secure_llrp: ``True`` when documented, ``False`` when documented
+            unavailable, or ``None`` when not verified.
+        llrp_port: Plain LLRP TCP port, normally 5084.
+        secure_llrp_port: Secure LLRP TCP port, normally 5085, or ``None``.
+        notes: Capability/firmware qualification for human readers.
+    """
 
     key: str
     vendor: str
@@ -38,6 +52,7 @@ class ReaderProfile:
 
     @property
     def all_names(self) -> tuple[str, ...]:
+        """Return canonical models followed by lookup aliases."""
         return self.models + self.aliases
 
 
@@ -285,3 +300,4 @@ __all__ = [
     "supports_secure_llrp",
     "default_llrp_port",
 ]
+

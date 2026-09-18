@@ -16,17 +16,20 @@ class UTCFormatter(logging.Formatter):
     converter = time.gmtime
 
     def formatTime(self, record, datefmt=None):
+        """Return ``record`` time as ISO-8601 UTC with milliseconds."""
         converted = self.converter(record.created)
         base = time.strftime(datefmt or "%Y-%m-%dT%H:%M:%S", converted)
         return f"{base}.{int(record.msecs):03d}Z"
 
 
 def set_general_debug(debug=False):
+    """Enable or disable high-rate protocol debug logging globally."""
     global general_debug_enabled
     general_debug_enabled = bool(debug)
 
 
 def is_general_debug_enabled():
+    """Return whether high-rate protocol debug logging is enabled."""
     return general_debug_enabled
 
 
@@ -101,5 +104,7 @@ class MaxLevelFilter(logging.Filter):
         self.level = level
 
     def filter(self, record):
+        """Return whether ``record.levelno`` is strictly below the limit."""
         # "<" is intentional: logger.setLevel is inclusive.
         return record.levelno < self.level
+

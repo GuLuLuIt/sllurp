@@ -2,7 +2,8 @@
 
 Sllurp 3.1.2 is the current supported release. For installation and first use,
 start with [`QUICKSTART.md`](QUICKSTART.md). For runnable feature examples, see
-[`examples/README.md`](examples/README.md). The documentation map is in
+[`examples/README.md`](examples/README.md). For Python interface details, use
+the [`3.1.2 API reference`](API_REFERENCE.md). The documentation map is in
 [`docs/index.rst`](docs/index.rst).
 
 ## Usage questions

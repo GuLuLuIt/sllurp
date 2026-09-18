@@ -1,3 +1,9 @@
+"""Runtime policy for configuration changes and request correlation.
+
+These helpers contain the concurrency-sensitive rules shared by the protocol
+and transport layers. They do not perform network I/O.
+"""
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -64,7 +70,11 @@ CONFIG_FIELD_POLICY = {
 
 
 def snapshot_config(config):
-    """Return a detached public-field snapshot of a reader config object."""
+    """Return a deep-copied snapshot of an object's public configuration fields.
+
+    Private attributes (names beginning with ``_``) are omitted. Mutable values
+    are detached so callers may safely compare or expose the result.
+    """
     return {
         name: deepcopy(value)
         for name, value in vars(config).items()
@@ -74,6 +84,16 @@ def snapshot_config(config):
 
 @dataclass(frozen=True)
 class ConfigChange:
+    """One changed configuration field and the action needed to apply it.
+
+    Attributes:
+        field: Public :class:`~sllurp.llrp.LLRPReaderConfig` field name.
+        old: Detached previous value.
+        new: Detached requested value.
+        action: One of ``client``, ``rospec``, ``reader_config``, or
+            ``reconnect``.
+    """
+
     field: str
     old: object
     new: object
@@ -82,34 +102,55 @@ class ConfigChange:
 
 @dataclass(frozen=True)
 class ConfigTransitionPlan:
+    """Immutable classification of all fields in one configuration change.
+
+    The convenience properties report the most disruptive work required. An
+    unknown field is conservatively classified as ``reconnect`` by
+    :func:`build_config_transition_plan`.
+    """
+
     changes: tuple[ConfigChange, ...] = ()
 
     @property
     def is_noop(self):
+        """Return whether no public configuration field changed."""
         return not self.changes
 
     @property
     def actions(self):
+        """Return the immutable set of action categories in the plan."""
         return frozenset(change.action for change in self.changes)
 
     @property
     def requires_rospec_restart(self):
+        """Return whether inventory/ROSpec regeneration is required."""
         return ACTION_ROSPEC in self.actions
 
     @property
     def requires_reader_config_write(self):
+        """Return whether SET_READER_CONFIG is required."""
         return ACTION_READER_CONFIG in self.actions
 
     @property
     def requires_reconnect(self):
+        """Return whether the transport/session must be reconnected."""
         return ACTION_RECONNECT in self.actions
 
     @property
     def client_only(self):
+        """Return whether all changes are local runtime changes."""
         return bool(self.changes) and self.actions == {ACTION_CLIENT}
 
 
 def build_config_transition_plan(old_config, new_config):
+    """Compare two configs and return their required transition actions.
+
+    Comparison uses detached public-field snapshots. The output is sorted by
+    field name for deterministic logs and tests.
+
+    Returns:
+        A :class:`ConfigTransitionPlan`; an equal pair produces a no-op plan.
+    """
     old = snapshot_config(old_config)
     new = snapshot_config(new_config)
     changes = []
@@ -125,6 +166,19 @@ def build_config_transition_plan(old_config, new_config):
 
 @dataclass
 class ConfigTransition:
+    """Observable result of applying a configuration transition.
+
+    ``status`` is ``pending``, ``success``, or ``failed``. :meth:`wait` may be
+    called from application threads, but must not be used in a reader callback:
+    callbacks normally execute on the reader's receive thread and blocking it
+    prevents the response that completes the transition from being processed.
+
+    Rollback invariant:
+        The caller keeps ``old_config`` authoritative until :meth:`succeed`.
+        On failure, the public client restores the old desired configuration;
+        it may disconnect if reader-side state can no longer be proven.
+    """
+
     plan: ConfigTransitionPlan
     old_config: object
     new_config: object
@@ -134,31 +188,49 @@ class ConfigTransition:
 
     @property
     def done(self):
+        """Return whether the transition has reached a terminal status."""
         return self._done.is_set()
 
     @property
     def succeeded(self):
+        """Return whether the terminal status is ``success``."""
         return self.status == "success"
 
     def succeed(self):
+        """Mark successful, wake waiters, and return this transition."""
         self.status = "success"
         self.error = None
         self._done.set()
         return self
 
     def fail(self, error):
+        """Record ``error``, wake waiters, and return this transition."""
         self.status = "failed"
         self.error = str(error)
         self._done.set()
         return self
 
     def wait(self, timeout=None):
+        """Wait up to ``timeout`` seconds and return whether the transition ended.
+
+        ``None`` waits indefinitely. This method does not raise the recorded
+        error; inspect :attr:`succeeded`, :attr:`status`, and :attr:`error`.
+        """
         self._done.wait(timeout)
         return self.done
 
 
 @dataclass
 class PendingRequest:
+    """A registered request awaiting one exact response key.
+
+    Attributes:
+        response_name: Expected LLRP response message name.
+        message_id: Unsigned 32-bit LLRP message ID.
+        callback: Optional completion callable owned by the protocol client.
+        timer: Internal daemon timer when a timeout was requested.
+    """
+
     response_name: str
     message_id: int
     callback: object = None
@@ -166,7 +238,18 @@ class PendingRequest:
 
 
 class PendingRequestRegistry:
-    """Thread-safe exact request/response correlation with stale-response memory."""
+    """Thread-safe exact request/response correlation with stale-response memory.
+
+    The identity key is ``(response_name, message_id)``. Matching only by
+    response type would let a delayed response complete a newer request, so
+    :meth:`pop_response_type` succeeds only when exactly one request of that
+    type exists and is reserved for explicitly compatible legacy handling.
+
+    Timeout callbacks run after the registry lock is released. This permits a
+    callback to register or cancel requests without deadlocking the registry.
+    Expired/completed keys are remembered in a bounded set so late frames can
+    be recognized without unbounded memory growth.
+    """
 
     def __init__(self, stale_limit=512):
         self._lock = RLock()
@@ -192,6 +275,18 @@ class PendingRequestRegistry:
         timeout=None,
         on_timeout=None,
     ):
+        """Register a request and optionally arm a timeout in seconds.
+
+        Returns:
+            The newly created :class:`PendingRequest`.
+
+        Raises:
+            ValueError: If the exact response-name/message-ID key is pending.
+
+        ``on_timeout(pending)`` executes on a daemon timer thread, outside the
+        registry lock. User-facing callbacks should normally be dispatched by
+        the higher-level reader client rather than registered here directly.
+        """
         key = (response_name, int(message_id))
         with self._lock:
             if key in self._pending:
@@ -220,6 +315,7 @@ class PendingRequestRegistry:
             on_timeout(pending)
 
     def pop(self, response_name, message_id):
+        """Remove and return an exact match, or ``None`` when none is pending."""
         key = (response_name, int(message_id))
         with self._lock:
             pending = self._pending.pop(key, None)
@@ -232,7 +328,11 @@ class PendingRequestRegistry:
             return pending
 
     def pop_response_type(self, response_name):
-        """Pop the sole request of a response type, otherwise leave state untouched."""
+        """Pop the sole request of a response type or leave state untouched.
+
+        This is a compatibility escape hatch for readers that return an
+        incorrect message ID. It deliberately refuses ambiguous matches.
+        """
         with self._lock:
             matches = [key for key in self._pending if key[0] == response_name]
             if len(matches) != 1:
@@ -246,6 +346,7 @@ class PendingRequestRegistry:
             return pending
 
     def cancel(self, response_name, message_id, remember_stale=True):
+        """Cancel an exact request and return it, or return ``None``."""
         key = (response_name, int(message_id))
         with self._lock:
             pending = self._pending.pop(key, None)
@@ -259,6 +360,13 @@ class PendingRequestRegistry:
             return pending
 
     def cancel_all(self, remember_stale=False):
+        """Cancel all timers and return all formerly pending requests.
+
+        Args:
+            remember_stale: Preserve cancelled keys as late-response markers.
+                Session teardown uses false because the entire correlation
+                domain is being discarded.
+        """
         with self._lock:
             values = list(self._pending.values())
             self._pending.clear()
@@ -274,17 +382,21 @@ class PendingRequestRegistry:
             return values
 
     def contains(self, response_name, message_id):
+        """Return whether the exact response-name/message-ID key is pending."""
         with self._lock:
             return (response_name, int(message_id)) in self._pending
 
     def has_response_type(self, response_name):
+        """Return whether any request expects ``response_name``."""
         with self._lock:
             return any(key[0] == response_name for key in self._pending)
 
     def is_stale(self, response_name, message_id):
+        """Return whether a recently completed/expired exact key is remembered."""
         with self._lock:
             return (response_name, int(message_id)) in self._stale_set
 
     def __len__(self):
         with self._lock:
             return len(self._pending)
+

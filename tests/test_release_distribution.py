@@ -50,6 +50,9 @@ def test_release_workflow_publishes_both_distributions_with_integrity_evidence()
 
 def test_source_distribution_contains_release_and_legal_documents():
     manifest = read("MANIFEST.in")
+    assert "recursive-include sllurp *.py *.md" in manifest
+    assert "recursive-include docs *.rst" in manifest
+    assert "recursive-include examples *.py *.md *.txt *.html" in manifest
     for expected in (
         "README.rst",
         "QUICKSTART.md",
@@ -63,6 +66,19 @@ def test_source_distribution_contains_release_and_legal_documents():
         "RELEASE_NOTES.md",
     ):
         assert f"include {expected}" in manifest
+
+
+def test_release_workflow_verifies_source_distribution_documentation():
+    workflow = read(".github/workflows/release-build.yml")
+    for expected in (
+        "Verify source distribution contents",
+        "API_REFERENCE.md",
+        "docs/index.rst",
+        "examples/basic_inventory.py",
+        "examples/fastapi/README.md",
+        "sllurp/epc/README.md",
+    ):
+        assert expected in workflow
 
 
 def test_user_and_developer_documentation_are_discoverable():

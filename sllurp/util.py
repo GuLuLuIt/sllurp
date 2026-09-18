@@ -21,10 +21,12 @@ _NATURAL_SPLIT_RE = re.compile(r"([0-9]+)")
 
 
 def BIT(n):
+    """Return an integer with zero-based bit ``n`` set."""
     return 1 << n
 
 
 def BITMASK(n):
+    """Return an integer whose lowest ``n`` bits are set."""
     return (1 << n) - 1
 
 
@@ -34,10 +36,15 @@ def func():
 
 
 def reverse_dict(data):
+    """Return a mapping with keys and values exchanged.
+
+    Duplicate values collapse to the last key encountered.
+    """
     return {value: key for key, value in data.items()}
 
 
 def atoi(text):
+    """Convert an all-decimal string to ``int``; otherwise return it unchanged."""
     return int(text) if text.isdigit() else text
 
 
@@ -101,3 +108,4 @@ def find_closest(table, target):
     elif index >= len(table):
         index = len(table) - 1
     return index, table[index]
+

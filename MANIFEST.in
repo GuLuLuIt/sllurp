@@ -1,4 +1,6 @@
-recursive-include sllurp *.py
+recursive-include sllurp *.py *.md
+recursive-include docs *.rst
+recursive-include examples *.py *.md *.txt *.html
 include README.rst
 include QUICKSTART.md
 include USER_GUIDE.md

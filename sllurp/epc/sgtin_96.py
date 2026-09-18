@@ -84,3 +84,4 @@ def parse_sgtin_96_to_uri(sgtin_96):
     tag_dict = parse_sgtin_96(sgtin_96)
     uri_template = "urn:epc:id:sgtin:{company_prefix}." "{item_reference}.{serial}"
     return uri_template.format(**tag_dict)
+

@@ -87,9 +87,15 @@ class ReaderHTTPResponse:
 
     @property
     def text(self) -> str:
+        """Return the body as UTF-8, replacing malformed byte sequences."""
         return self.body.decode("utf-8", errors="replace")
 
     def json(self) -> Any:
+        """Decode and return JSON, or ``None`` when the body is empty.
+
+        Raises:
+            json.JSONDecodeError: If a non-empty body is not valid JSON.
+        """
         if not self.body:
             return None
         return json.loads(self.body.decode("utf-8"))
@@ -358,3 +364,4 @@ def create_reader_manager(
         f"no documented built-in HTTP/HTTPS management adapter for {model!r}; "
         "use HTTPReaderManager directly when the vendor provides a stable endpoint"
     )
+

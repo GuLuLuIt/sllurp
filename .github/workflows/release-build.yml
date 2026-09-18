@@ -44,6 +44,31 @@ jobs:
         run: python -m build
       - name: Validate distribution metadata
         run: python -m twine check dist/*
+      - name: Verify source distribution contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+
+          source_archive = next(Path("dist").glob("sllurp-*.tar.gz"))
+          with tarfile.open(source_archive) as archive:
+              names = set(archive.getnames())
+
+          prefix = source_archive.name.removesuffix(".tar.gz")
+          required = {
+              f"{prefix}/API_REFERENCE.md",
+              f"{prefix}/USER_GUIDE.md",
+              f"{prefix}/DEVELOPER_GUIDE.md",
+              f"{prefix}/docs/index.rst",
+              f"{prefix}/examples/basic_inventory.py",
+              f"{prefix}/examples/fastapi/README.md",
+              f"{prefix}/sllurp/epc/README.md",
+          }
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f"Source distribution is missing: {missing}")
+          print(f"Validated source documentation and examples in {source_archive.name}.")
+          PY
       - name: Verify built artifact version
         run: |
           python - <<'PY'

@@ -261,6 +261,11 @@ class IntermecDCWSManager:
         return tuple(sorted(self.operations))
 
     def get_operation(self, name: str) -> SOAPOperation:
+        """Return one operation advertised by the reader WSDL.
+
+        Raises:
+            ReaderManagementError: If ``name`` was not advertised.
+        """
         try:
             return self.operations[name]
         except KeyError as exc:
@@ -361,3 +366,4 @@ class IntermecDCWSManager:
         if len(payload) == 1:
             return _element_value(payload[0])
         return {_local_name(node.tag): _element_value(node) for node in payload}
+
